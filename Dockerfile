@@ -66,8 +66,13 @@ USER nextjs
 EXPOSE 3000
 
 ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
 
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output
-CMD ["node", "server.js"]
+# HOSTNAME is set inline (not via a Dockerfile ENV) because Docker assigns
+# every container its own HOSTNAME at runtime, which would otherwise
+# silently override an image-baked ENV and leave the server bound only to
+# the container's own address - unreachable from `localhost` inside the
+# same container (breaks the cron scheduled task) even though the public
+# domain still works via the reverse proxy's container-IP routing.
+CMD ["sh", "-c", "HOSTNAME=0.0.0.0 node server.js"]
