@@ -1,67 +1,84 @@
-# Payload Blank Template
+# Task Buddy v2
 
-This template comes configured with the bare minimum to get started on anything you need.
+Internal task-update tool for Integra Magna. A cartoon character walks onto
+each person's screen at scheduled times, asks for their work update, and
+routes it to their team lead. The server (Payload CMS 3 + Next.js, this repo
+root) is the source of truth; the desktop app (`desktop/`) is a "dumb"
+Electron client that only renders what the server tells it to.
 
-## Quick start
+## Server setup
 
-This template can be deployed directly from our Cloud hosting and it will setup MongoDB and cloud S3 object storage for media.
+1. `pnpm install`
+2. Copy `.env.example` to `.env` and fill in:
+   - `DATABASE_URL` — Postgres connection string (Neon in production)
+   - `PAYLOAD_SECRET` — Payload's session/encryption secret
+   - `DEVICE_TOKEN_SECRET` — signs the desktop app's device JWTs
+   - `CRON_SECRET` — bearer token required by `POST /api/cron/tick`
+   - `GEMINI_API_KEY` — used by `POST /api/task/parse`
+3. `pnpm dev` — starts Next.js/Payload at `http://localhost:3000`. In
+   non-production `NODE_ENV`, a `node-cron` job (see `src/instrumentation.ts`)
+   automatically hits `/api/cron/tick` every minute so the scheduler runs
+   without any external cron setup.
+4. `pnpm seed` — creates 4 departments, 3 slots (12:00/15:00/17:30 IST,
+   Mon–Sat), one admin, and 3 demo users in Development with pairing codes
+   printed to the console. Admin credentials default to
+   `admin@integramagna.com` / `change-me-now`; override with
+   `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` env vars before seeding, or
+   change them from inside the CMS afterward.
 
-## Quick Start - local setup
+### Testing
 
-To spin up this template locally, follow these steps:
+- `pnpm test:int` — Vitest: unit tests for IST time/slot math, the
+  scheduler's report-trigger logic, and `parseWithFallback()`'s model
+  fallback chain (all mocked, no live Gemini calls), plus the existing
+  Payload integration test.
+- `pnpm test:e2e` — Playwright admin/frontend smoke tests.
+- Set `TEST_MODE=true` when starting the server to compress a full day's
+  scheduler cycle down to a few minutes for manual end-to-end testing:
+  slots open on every tick instead of at their configured time, and the
+  report cutoff/escalation window shrinks to a few minutes. Never set this
+  in production.
 
-### Clone
+## Desktop app setup
 
-After you click the `Deploy` button above, you'll want to have standalone copy of this repo on your machine. If you've already cloned this repo, skip to [Development](#development).
+```
+pnpm --filter desktop install
+pnpm --filter desktop start          # dev, defaults to http://localhost:3000
+```
 
-### Development
+`SERVER_URL` is baked into the app **at build time**, not read from the end
+user's environment — see `desktop/scripts/generate-config.js`. To point a
+build at a different server:
 
-1. First [clone the repo](#clone) if you have not done so already
-2. `cd my-project && cp .env.example .env` to copy the example environment variables. You'll need to add the `MONGODB_URL` from your Cloud project to your `.env` if you want to use S3 storage and the MongoDB database that was created for you.
+```
+SERVER_URL=https://taskbuddy.integramagna.com pnpm --filter desktop build:win
+```
 
-3. `pnpm install && pnpm dev` to install dependencies and start the dev server
-4. open `http://localhost:3000` to open the app in your browser
+Dev and packaged builds use separate app names and `userData` folders
+(`TaskBuddy-dev` vs `TaskBuddy`) so running both at once never collides.
 
-That's it! Changes made in `./src` will be reflected in your app. Follow the on-screen instructions to login and create your first admin user. Then check out [Production](#production) once you're ready to build and serve your app, and [Deployment](#deployment) when you're ready to go live.
+### Building installers
 
-#### Docker (Optional)
+- Windows: `pnpm --filter desktop build:win` → NSIS installer in
+  `desktop/dist/`.
+- macOS: built via the `.github/workflows/build-mac.yml` GitHub Actions
+  workflow on `macos-latest` (Windows can't cross-build a signed `.dmg`).
+  Set a `SERVER_URL` repository variable before running it. The workflow
+  uploads the `.dmg` as a build artifact — it does not publish a GitHub
+  release (`"publish": null` in `desktop/package.json`'s electron-builder
+  config keeps CI from attempting that).
 
-If you prefer to use Docker for local development instead of a local MongoDB instance, the provided docker-compose.yml file can be used.
+## Deployment (Coolify)
 
-To do so, follow these steps:
-
-- Modify the `MONGODB_URL` in your `.env` file to `mongodb://127.0.0.1/<dbname>`
-- Modify the `docker-compose.yml` file's `MONGODB_URL` to match the above `<dbname>`
-- Run `docker-compose up` to start the database, optionally pass `-d` to run in the background.
-
-## How it works
-
-The Payload config is tailored specifically to the needs of most websites. It is pre-configured in the following ways:
-
-### Collections
-
-See the [Collections](https://payloadcms.com/docs/configuration/collections) docs for details on how to extend this functionality.
-
-- #### Users (Authentication)
-
-  Users are auth-enabled collections that have access to the admin panel.
-
-  For additional help, see the official [Auth Example](https://github.com/payloadcms/payload/tree/3.x/examples/auth) or the [Authentication](https://payloadcms.com/docs/authentication/overview#authentication-overview) docs.
-
-- #### Media
-
-  This is the uploads enabled collection. It features pre-configured sizes, focal point and manual resizing to help you manage your pictures.
-
-### Docker
-
-Alternatively, you can use [Docker](https://www.docker.com) to spin up this template locally. To do so, follow these steps:
-
-1. Follow [steps 1 and 2 from above](#development), the docker-compose file will automatically use the `.env` file in your project root
-1. Next run `docker-compose up`
-1. Follow [steps 4 and 5 from above](#development) to login and create your first admin user
-
-That's it! The Docker instance will help you get up and running quickly while also standardizing the development environment across your teams.
-
-## Questions
-
-If you have any issues or questions, reach out to us on [Discord](https://discord.com/invite/payload) or start a [GitHub discussion](https://github.com/payloadcms/payload/discussions).
+- Server: build the root `Dockerfile` (Next.js standalone output) and
+  deploy on Coolify. Set the 5 env vars above from the Coolify UI —
+  never commit them.
+- **Scheduler**: add a Coolify cron job that runs every minute:
+  ```
+  curl -X POST https://<your-domain>/api/cron/tick \
+    -H "Authorization: Bearer $CRON_SECRET"
+  ```
+  This replaces the `node-cron` dev fallback, which is disabled whenever
+  `NODE_ENV=production`.
+- Desktop installers are built and distributed separately (see above) —
+  they are not part of the server deployment.

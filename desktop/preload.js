@@ -1,0 +1,23 @@
+const { contextBridge, ipcRenderer } = require('electron')
+
+contextBridge.exposeInMainWorld('taskBuddy', {
+  pair: (code) => ipcRenderer.invoke('pair', code),
+  getCachedIdentity: () => ipcRenderer.invoke('get-cached-identity'),
+  hasToken: () => ipcRenderer.invoke('has-token'),
+  actionResolved: () => ipcRenderer.invoke('action-resolved'),
+  hideWindow: () => ipcRenderer.invoke('hide-window'),
+  submitUpdate: (payload) => ipcRenderer.invoke('submit-update', payload),
+  getReport: (slotId) => ipcRenderer.invoke('get-report', slotId),
+  getHistory: () => ipcRenderer.invoke('get-history'),
+  parseTask: (rawInput) => ipcRenderer.invoke('parse-task', rawInput),
+  createTask: (task) => ipcRenderer.invoke('create-task', task),
+  ackTask: (taskId, status) => ipcRenderer.invoke('ack-task', { taskId, status }),
+  snoozeTask: (taskId) => ipcRenderer.invoke('snooze-task', taskId),
+  dispatchMessage: (ownerId, text) => ipcRenderer.invoke('dispatch-message', { ownerId, text }),
+  onAction: (callback) => ipcRenderer.on('action', (_event, action) => callback(action)),
+  onOpenPanel: (callback) => ipcRenderer.on('open-panel', (_event, payload) => callback(payload)),
+  onOffline: (callback) => ipcRenderer.on('offline', () => callback()),
+  onAccessRemoved: (callback) =>
+    ipcRenderer.on('access-removed', (_event, payload) => callback(payload)),
+  onShowPairing: (callback) => ipcRenderer.on('show-pairing', () => callback()),
+})

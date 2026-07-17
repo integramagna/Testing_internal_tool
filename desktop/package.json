@@ -1,0 +1,47 @@
+{
+  "name": "desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Task Buddy desktop companion",
+  "author": "Integra Magna",
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "generate-config": "node scripts/generate-config.js",
+    "build:win": "node scripts/generate-config.js && electron-builder --win nsis",
+    "build:mac": "node scripts/generate-config.js && electron-builder --mac dmg"
+  },
+  "build": {
+    "appId": "com.integramagna.taskbuddy",
+    "productName": "Task Buddy",
+    "asar": true,
+    "compression": "maximum",
+    "afterPack": "scripts/after-pack.js",
+    "files": [
+      "main.js",
+      "preload.js",
+      "tokenStore.js",
+      "pendingQueue.js",
+      "generated-config.js",
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.productivity",
+      "icon": "assets/icon.png"
+    },
+    "publish": null
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  }
+}

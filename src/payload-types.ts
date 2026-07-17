@@ -69,6 +69,13 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
+    departments: Department;
+    slots: Slot;
+    updates: Update;
+    tasks: Task;
+    holidays: Holiday;
+    auditLog: AuditLog;
+    slotRuns: SlotRun;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -78,13 +85,20 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    departments: DepartmentsSelect<false> | DepartmentsSelect<true>;
+    slots: SlotsSelect<false> | SlotsSelect<true>;
+    updates: UpdatesSelect<false> | UpdatesSelect<true>;
+    tasks: TasksSelect<false> | TasksSelect<true>;
+    holidays: HolidaysSelect<false> | HolidaysSelect<true>;
+    auditLog: AuditLogSelect<false> | AuditLogSelect<true>;
+    slotRuns: SlotRunsSelect<false> | SlotRunsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
   };
   db: {
-    defaultIDType: string;
+    defaultIDType: number;
   };
   fallbackLocale: null;
   globals: {};
@@ -122,7 +136,18 @@ export interface UserAuthOperations {
  * via the `definition` "users".
  */
 export interface User {
-  id: string;
+  id: number;
+  name: string;
+  department?: (number | null) | Department;
+  role: 'member' | 'lead' | 'admin';
+  status: 'active' | 'left' | 'pending';
+  pairingCode?: string | null;
+  deviceId?: string | null;
+  allowRePair?: boolean | null;
+  lastPairedAt?: string | null;
+  lastSeenAt?: string | null;
+  pausedUntil?: string | null;
+  slackUserId?: string | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -144,10 +169,23 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "departments".
+ */
+export interface Department {
+  id: number;
+  name: string;
+  lead?: (number | null) | User;
+  reportDelayMinutes?: number | null;
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
  */
 export interface Media {
-  id: string;
+  id: number;
   alt: string;
   updatedAt: string;
   createdAt: string;
@@ -163,10 +201,135 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "slots".
+ */
+export interface Slot {
+  id: number;
+  label?: string | null;
+  /**
+   * HH:mm in IST, e.g. 12:00
+   */
+  time: string;
+  days?: ('mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat')[] | null;
+  /**
+   * Empty applies to all departments
+   */
+  department?: (number | null) | Department;
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "updates".
+ */
+export interface Update {
+  id: number;
+  user: number | User;
+  department?: (number | null) | Department;
+  slot: number | Slot;
+  /**
+   * IST date, YYYY-MM-DD
+   */
+  date: string;
+  text?: string | null;
+  blocked?: boolean | null;
+  blockedReason?: string | null;
+  submittedAt?: string | null;
+  status?: ('submitted' | 'late' | 'missed') | null;
+  /**
+   * How many times ask_update was snoozed for this slot/day (capped at 3)
+   */
+  snoozeCount?: number | null;
+  /**
+   * Set the first time escalation_warning was delivered, so it fires only once
+   */
+  escalatedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tasks".
+ */
+export interface Task {
+  id: number;
+  owner: number | User;
+  createdBy: number | User;
+  text: string;
+  remindAt: string;
+  status?: ('pending' | 'done' | 'dismissed' | 'expired') | null;
+  character: 'pip' | 'bolt';
+  rawInput?: string | null;
+  acknowledgedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "holidays".
+ */
+export interface Holiday {
+  id: number;
+  /**
+   * YYYY-MM-DD
+   */
+  date: string;
+  label?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "auditLog".
+ */
+export interface AuditLog {
+  id: number;
+  type: 'pair_failed' | 'gemini_failed' | 'no_lead' | 'repair_blocked' | 'other';
+  message?: string | null;
+  meta?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "slotRuns".
+ */
+export interface SlotRun {
+  id: number;
+  department: number | Department;
+  slot: number | Slot;
+  /**
+   * IST date, YYYY-MM-DD
+   */
+  date: string;
+  openedAt?: string | null;
+  /**
+   * Set once the report is finalized (all submitted or cutoff passed)
+   */
+  reportSentAt?: string | null;
+  /**
+   * Set once show_report has been pushed to the lead/admin via poll
+   */
+  reportDeliveredAt?: string | null;
+  noLead?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
-  id: string;
+  id: number;
   key: string;
   data:
     | {
@@ -183,20 +346,48 @@ export interface PayloadKv {
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
-  id: string;
+  id: number;
   document?:
     | ({
         relationTo: 'users';
-        value: string | User;
+        value: number | User;
       } | null)
     | ({
         relationTo: 'media';
-        value: string | Media;
+        value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'departments';
+        value: number | Department;
+      } | null)
+    | ({
+        relationTo: 'slots';
+        value: number | Slot;
+      } | null)
+    | ({
+        relationTo: 'updates';
+        value: number | Update;
+      } | null)
+    | ({
+        relationTo: 'tasks';
+        value: number | Task;
+      } | null)
+    | ({
+        relationTo: 'holidays';
+        value: number | Holiday;
+      } | null)
+    | ({
+        relationTo: 'auditLog';
+        value: number | AuditLog;
+      } | null)
+    | ({
+        relationTo: 'slotRuns';
+        value: number | SlotRun;
       } | null);
   globalSlug?: string | null;
   user: {
     relationTo: 'users';
-    value: string | User;
+    value: number | User;
   };
   updatedAt: string;
   createdAt: string;
@@ -206,10 +397,10 @@ export interface PayloadLockedDocument {
  * via the `definition` "payload-preferences".
  */
 export interface PayloadPreference {
-  id: string;
+  id: number;
   user: {
     relationTo: 'users';
-    value: string | User;
+    value: number | User;
   };
   key?: string | null;
   value?:
@@ -229,7 +420,7 @@ export interface PayloadPreference {
  * via the `definition` "payload-migrations".
  */
 export interface PayloadMigration {
-  id: string;
+  id: number;
   name?: string | null;
   batch?: number | null;
   updatedAt: string;
@@ -240,6 +431,17 @@ export interface PayloadMigration {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  name?: T;
+  department?: T;
+  role?: T;
+  status?: T;
+  pairingCode?: T;
+  deviceId?: T;
+  allowRePair?: T;
+  lastPairedAt?: T;
+  lastSeenAt?: T;
+  pausedUntil?: T;
+  slackUserId?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -274,6 +476,102 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "departments_select".
+ */
+export interface DepartmentsSelect<T extends boolean = true> {
+  name?: T;
+  lead?: T;
+  reportDelayMinutes?: T;
+  active?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "slots_select".
+ */
+export interface SlotsSelect<T extends boolean = true> {
+  label?: T;
+  time?: T;
+  days?: T;
+  department?: T;
+  active?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "updates_select".
+ */
+export interface UpdatesSelect<T extends boolean = true> {
+  user?: T;
+  department?: T;
+  slot?: T;
+  date?: T;
+  text?: T;
+  blocked?: T;
+  blockedReason?: T;
+  submittedAt?: T;
+  status?: T;
+  snoozeCount?: T;
+  escalatedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tasks_select".
+ */
+export interface TasksSelect<T extends boolean = true> {
+  owner?: T;
+  createdBy?: T;
+  text?: T;
+  remindAt?: T;
+  status?: T;
+  character?: T;
+  rawInput?: T;
+  acknowledgedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "holidays_select".
+ */
+export interface HolidaysSelect<T extends boolean = true> {
+  date?: T;
+  label?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "auditLog_select".
+ */
+export interface AuditLogSelect<T extends boolean = true> {
+  type?: T;
+  message?: T;
+  meta?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "slotRuns_select".
+ */
+export interface SlotRunsSelect<T extends boolean = true> {
+  department?: T;
+  slot?: T;
+  date?: T;
+  openedAt?: T;
+  reportSentAt?: T;
+  reportDeliveredAt?: T;
+  noLead?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
