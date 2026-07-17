@@ -10,6 +10,8 @@ export interface ReportItem {
   blocked?: boolean
   blockedReason?: string
   userId: string
+
+  
 }
 
 export interface ReportResult {
