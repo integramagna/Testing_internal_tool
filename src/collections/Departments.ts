@@ -32,6 +32,7 @@ export const Departments: CollectionConfig = {
       type: 'number',
       defaultValue: 15,
     },
+    
     {
       name: 'active',
       type: 'checkbox',
