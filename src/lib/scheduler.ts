@@ -31,3 +31,22 @@ export const isSkippableDay = (
 ): boolean => {
   return istDay === 'sun' || holidayDates.includes(istDate)
 }
+
+export const isSnoozed = (snoozedUntil: string | null | undefined, now: Date): boolean => {
+  if (!snoozedUntil) return false
+  return new Date(snoozedUntil).getTime() > now.getTime()
+}
+
+export const computeSnoozedUntil = (now: Date, cutoffInstant: Date, snoozeMinutes = 5): Date => {
+  const requested = new Date(now.getTime() + snoozeMinutes * 60_000)
+  return requested < cutoffInstant ? requested : cutoffInstant
+}
+
+export interface DatedRun {
+  date: string
+}
+
+export const findTodaysUndeliveredRun = <T extends DatedRun>(
+  docs: T[],
+  todayISTDate: string,
+): T | null => docs.find((doc) => doc.date.startsWith(todayISTDate)) ?? null

@@ -77,8 +77,8 @@ describe('parseWithFallback', () => {
     expect(result.needsClarification).toBe(false)
     expect(result.text).toBe('Call the vendor')
     expect(new Date(result.remindAt).getTime()).toBe(now.getTime() + 30 * 60_000)
-    // 4 models, 3 attempts each (1 initial + 2 retries) = 12 calls for one parseWithFallback run
-    expect(mockGenerateContent.mock.calls.length).toBe(12)
+    // 2 models, 2 attempts each (1 initial + 1 retry) = 4 calls for one parseWithFallback run
+    expect(mockGenerateContent.mock.calls.length).toBe(4)
   }, 20000)
 
   it('flags low-confidence local parses as needing clarification instead of guessing', async () => {

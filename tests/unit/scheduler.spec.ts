@@ -5,6 +5,9 @@ import {
   shouldTriggerReport,
   isMemberOnLeave,
   isSkippableDay,
+  isSnoozed,
+  findTodaysUndeliveredRun,
+  computeSnoozedUntil,
 } from '@/lib/scheduler'
 
 describe('scheduler', () => {
@@ -71,6 +74,67 @@ describe('scheduler', () => {
 
     it('does not skip an ordinary weekday', () => {
       expect(isSkippableDay('fri', '2026-07-17', ['2026-07-18'])).toBe(false)
+    })
+  })
+
+  describe('isSnoozed', () => {
+    it('is false when nothing has been snoozed', () => {
+      expect(isSnoozed(null, new Date('2026-07-17T06:30:00.000Z'))).toBe(false)
+      expect(isSnoozed(undefined, new Date('2026-07-17T06:30:00.000Z'))).toBe(false)
+    })
+
+    it('is true while the snooze window has not yet elapsed', () => {
+      const snoozedUntil = '2026-07-17T06:35:00.000Z'
+      expect(isSnoozed(snoozedUntil, new Date('2026-07-17T06:30:00.000Z'))).toBe(true)
+    })
+
+    it('is false once the snooze window has passed', () => {
+      const snoozedUntil = '2026-07-17T06:35:00.000Z'
+      expect(isSnoozed(snoozedUntil, new Date('2026-07-17T06:35:01.000Z'))).toBe(false)
+    })
+  })
+
+  describe('findTodaysUndeliveredRun', () => {
+    const runs = [
+      { date: '2026-07-18' },
+      { date: '2026-07-20T14:05' },
+      { date: '2026-07-21' },
+    ]
+
+    it('finds the run matching today, ignoring older backlog entries', () => {
+      expect(findTodaysUndeliveredRun(runs, '2026-07-21')).toEqual({ date: '2026-07-21' })
+    })
+
+    it('matches TEST_MODE-style dates that carry a time suffix', () => {
+      expect(findTodaysUndeliveredRun(runs, '2026-07-20')).toEqual({ date: '2026-07-20T14:05' })
+    })
+
+    it('returns null when nothing from today is present, leaving old backlog invisible', () => {
+      expect(findTodaysUndeliveredRun(runs, '2026-07-25')).toBeNull()
+    })
+
+    it('returns null for an empty list', () => {
+      expect(findTodaysUndeliveredRun([], '2026-07-21')).toBeNull()
+    })
+  })
+
+  describe('computeSnoozedUntil', () => {
+    it('grants the full 5 minutes when the cutoff is comfortably far away', () => {
+      const now = new Date('2026-07-17T06:30:00.000Z')
+      const cutoffInstant = new Date('2026-07-17T06:45:00.000Z')
+      expect(computeSnoozedUntil(now, cutoffInstant).toISOString()).toBe('2026-07-17T06:35:00.000Z')
+    })
+
+    it('caps the snooze at the cutoff when the window is shorter than 5 minutes', () => {
+      const now = new Date('2026-07-17T06:30:00.000Z')
+      const cutoffInstant = new Date('2026-07-17T06:33:00.000Z')
+      expect(computeSnoozedUntil(now, cutoffInstant).toISOString()).toBe(cutoffInstant.toISOString())
+    })
+
+    it('caps at the cutoff even when the cutoff has already passed', () => {
+      const now = new Date('2026-07-17T06:50:00.000Z')
+      const cutoffInstant = new Date('2026-07-17T06:45:00.000Z')
+      expect(computeSnoozedUntil(now, cutoffInstant).toISOString()).toBe(cutoffInstant.toISOString())
     })
   })
 })

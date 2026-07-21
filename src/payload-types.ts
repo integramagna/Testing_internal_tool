@@ -251,6 +251,10 @@ export interface Update {
    * Set the first time escalation_warning was delivered, so it fires only once
    */
   escalatedAt?: string | null;
+  /**
+   * ask_update will not be re-delivered for this slot/day until this instant passes
+   */
+  snoozedUntil?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -544,6 +548,7 @@ export interface UpdatesSelect<T extends boolean = true> {
   status?: T;
   snoozeCount?: T;
   escalatedAt?: T;
+  snoozedUntil?: T;
   updatedAt?: T;
   createdAt?: T;
 }

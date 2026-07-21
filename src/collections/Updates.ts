@@ -83,5 +83,12 @@ export const Updates: CollectionConfig = {
         description: 'Set the first time escalation_warning was delivered, so it fires only once',
       },
     },
+    {
+      name: 'snoozedUntil',
+      type: 'date',
+      admin: {
+        description: 'ask_update will not be re-delivered for this slot/day until this instant passes',
+      },
+    },
   ],
 }

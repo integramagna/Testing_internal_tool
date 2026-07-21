@@ -339,6 +339,10 @@ ipcMain.handle('get-team-roster', async () => {
   return authedFetch('/api/team-roster')
 })
 
+ipcMain.handle('get-company-roster', async () => {
+  return authedFetch('/api/team-roster?scope=company')
+})
+
 ipcMain.handle('get-member-report', async (_event, { userId, from, to }) => {
   const params = new URLSearchParams({ userId, from, to })
   return authedFetch(`/api/member-report?${params.toString()}`)
@@ -380,6 +384,13 @@ ipcMain.handle('dispatch-message', async (_event, { ownerId, text }) => {
   return authedFetch('/api/dispatch', {
     method: 'POST',
     body: JSON.stringify({ ownerId, text }),
+  })
+})
+
+ipcMain.handle('dispatch-bulk-message', async (_event, { ownerIds, text }) => {
+  return authedFetch('/api/dispatch', {
+    method: 'POST',
+    body: JSON.stringify({ ownerIds, text }),
   })
 })
 

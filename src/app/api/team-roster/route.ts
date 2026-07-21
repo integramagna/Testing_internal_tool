@@ -18,12 +18,14 @@ export const GET = async (request: Request) => {
     return Response.json({ error: 'forbidden' }, { status: 403 })
   }
 
-  let where: Where = {
-    role: { equals: 'member' },
-    status: { equals: 'active' },
-  }
+  const scope = new URL(request.url).searchParams.get('scope')
+  const isCompanyWide = scope === 'company'
 
-  if (user.role === 'lead') {
+  let where: Where = isCompanyWide
+    ? { status: { equals: 'active' } }
+    : { role: { equals: 'member' }, status: { equals: 'active' } }
+
+  if (!isCompanyWide && user.role === 'lead') {
     const ledDepartmentIds = await getLedDepartmentIds(payload, user.id)
     if (ledDepartmentIds.length === 0) {
       return Response.json({ members: [] })
@@ -39,14 +41,17 @@ export const GET = async (request: Request) => {
     sort: 'name',
   })
 
-  const members = result.docs.map((m) => {
-    const dept = typeof m.department === 'object' ? m.department : null
-    return {
-      userId: String(m.id),
-      name: m.name,
-      departmentName: dept?.name ?? null,
-    }
-  })
+  const members = result.docs
+    .filter((m) => m.id !== user.id)
+    .map((m) => {
+      const dept = typeof m.department === 'object' ? m.department : null
+      return {
+        userId: String(m.id),
+        name: m.name,
+        departmentName: dept?.name ?? null,
+        role: m.role,
+      }
+    })
 
   return Response.json({ members })
 }

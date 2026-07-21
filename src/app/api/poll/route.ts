@@ -12,7 +12,7 @@ import {
 } from '@/lib/istTime'
 import { buildReport } from '@/lib/report'
 import { getLedDepartmentIds, relationId } from '@/lib/relation'
-import { computeSlotWindow, isMemberOnLeave } from '@/lib/scheduler'
+import { computeSlotWindow, findTodaysUndeliveredRun, isMemberOnLeave, isSnoozed } from '@/lib/scheduler'
 import type { Slot, SlotRun, User } from '@/payload-types'
 
 const deliverReport = async (payload: Payload, slotRun: SlotRun, now: Date) => {
@@ -40,6 +40,8 @@ const deliverReport = async (payload: Payload, slotRun: SlotRun, now: Date) => {
 }
 
 const checkShowReport = async (payload: Payload, user: User, now: Date) => {
+  const todayISTDate = getISTDateString(now)
+
   if (user.role === 'lead') {
     const departmentIds = await getLedDepartmentIds(payload, user.id)
     if (departmentIds.length === 0) return null
@@ -53,11 +55,12 @@ const checkShowReport = async (payload: Payload, user: User, now: Date) => {
         noLead: { equals: false },
       },
       sort: 'reportSentAt',
-      limit: 1,
+      limit: 25,
     })
 
-    if (!result.docs[0]) return null
-    return deliverReport(payload, result.docs[0], now)
+    const run = findTodaysUndeliveredRun(result.docs, todayISTDate)
+    if (!run) return null
+    return deliverReport(payload, run, now)
   }
 
   if (user.role === 'admin') {
@@ -69,11 +72,12 @@ const checkShowReport = async (payload: Payload, user: User, now: Date) => {
         noLead: { equals: true },
       },
       sort: 'reportSentAt',
-      limit: 1,
+      limit: 25,
     })
 
-    if (!result.docs[0]) return null
-    return deliverReport(payload, result.docs[0], now)
+    const run = findTodaysUndeliveredRun(result.docs, todayISTDate)
+    if (!run) return null
+    return deliverReport(payload, run, now)
   }
 
   return null
@@ -225,6 +229,8 @@ const checkMemberAction = async (payload: Payload, user: User, now: Date) => {
 
     const snoozeCount = existingUpdate?.snoozeCount ?? 0
     if (snoozeCount >= 3) continue
+
+    if (isSnoozed(existingUpdate?.snoozedUntil, now)) continue
 
     return {
       action: 'ask_update' as const,

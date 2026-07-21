@@ -44,15 +44,10 @@ const PIP_INTENTS: readonly PipIntent[] = [
 const isPipIntent = (value: unknown): value is PipIntent =>
   typeof value === 'string' && PIP_INTENTS.includes(value as PipIntent)
 
-const MODEL_CHAIN = [
-  'gemini-flash-latest',
-  'gemini-2.5-flash',
-  'gemini-flash-lite-latest',
-  'gemini-2.5-flash-lite',
-]
+const MODEL_CHAIN = ['gemini-flash-lite-latest', 'gemini-flash-latest']
 
-const RETRY_DELAYS_MS = [500, 1500]
-const ATTEMPT_TIMEOUT_MS = 8000
+const RETRY_DELAYS_MS = [500]
+const ATTEMPT_TIMEOUT_MS = 5000
 const MINUTE_MS = 60_000
 const HOUR_MS = 60 * MINUTE_MS
 

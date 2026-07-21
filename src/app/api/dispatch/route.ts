@@ -1,11 +1,12 @@
 import configPromise from '@payload-config'
 import { getPayload } from 'payload'
 
+import { authorizeDispatchTarget, parseOwnerIds } from '@/lib/dispatchAuth'
 import { resolveIdentity } from '@/lib/identity'
-import { getLedDepartmentIds, relationId } from '@/lib/relation'
 
 interface DispatchRequestBody {
   ownerId?: unknown
+  ownerIds?: unknown
   text?: unknown
 }
 
@@ -26,58 +27,49 @@ export const POST = async (request: Request) => {
     return Response.json({ error: 'invalid_body' }, { status: 400 })
   }
 
-  const ownerId = typeof body.ownerId === 'number' ? body.ownerId : Number(body.ownerId)
   const text = typeof body.text === 'string' ? body.text.trim() : ''
+  const ownerIds = [...new Set(parseOwnerIds(body))].filter((id) => id !== user.id)
 
-  if (!ownerId || Number.isNaN(ownerId) || !text) {
+  if (ownerIds.length === 0 || !text) {
     return Response.json({ error: 'invalid_dispatch' }, { status: 400 })
   }
 
-  const owner = await payload
-    .findByID({ collection: 'users', id: ownerId, depth: 0 })
-    .catch(() => null)
+  const results: { ownerId: number; ok: boolean; error?: string }[] = []
 
-  if (!owner) {
-    return Response.json({ error: 'owner_not_found' }, { status: 404 })
-  }
+  for (const ownerId of ownerIds) {
+    const owner = await payload.findByID({ collection: 'users', id: ownerId, depth: 0 }).catch(() => null)
 
-  if (user.role === 'lead') {
-    const ownerDeptId = relationId(owner.department)
-    const ledDepartmentIds = await getLedDepartmentIds(payload, user.id)
-    if (!ownerDeptId || !ledDepartmentIds.includes(ownerDeptId)) {
-      return Response.json({ error: 'forbidden' }, { status: 403 })
+    if (!owner) {
+      results.push({ ownerId, ok: false, error: 'owner_not_found' })
+      continue
     }
-  }
 
-  if (user.role === 'member') {
-    // Members can't dispatch to arbitrary colleagues, but they can reply to
-    // someone who has already dispatched a message to them.
-    const priorDispatch = await payload.find({
+    const authResult = await authorizeDispatchTarget(payload, user, owner)
+    if (!authResult.ok) {
+      results.push({ ownerId, ok: false, error: authResult.error })
+      continue
+    }
+
+    await payload.create({
       collection: 'tasks',
-      where: {
-        owner: { equals: user.id },
-        createdBy: { equals: ownerId },
-        character: { equals: 'bolt' },
+      data: {
+        owner: owner.id,
+        createdBy: user.id,
+        text,
+        remindAt: new Date().toISOString(),
+        status: 'pending',
+        character: 'bolt',
       },
-      limit: 1,
     })
 
-    if (priorDispatch.docs.length === 0) {
-      return Response.json({ error: 'forbidden' }, { status: 403 })
-    }
+    results.push({ ownerId, ok: true })
   }
 
-  const task = await payload.create({
-    collection: 'tasks',
-    data: {
-      owner: owner.id,
-      createdBy: user.id,
-      text,
-      remindAt: new Date().toISOString(),
-      status: 'pending',
-      character: 'bolt',
-    },
-  })
+  const sentCount = results.filter((r) => r.ok).length
 
-  return Response.json({ ok: true, task })
+  if (sentCount === 0) {
+    return Response.json({ ok: false, error: results[0]?.error ?? 'forbidden', results }, { status: 403 })
+  }
+
+  return Response.json({ ok: true, sentCount, results })
 }

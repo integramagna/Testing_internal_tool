@@ -238,6 +238,14 @@ const renderRemindTask = (action) => {
 
 // ---------- show_report ----------
 
+const REPORT_STATUS_LABEL = {
+  submitted: 'Submitted',
+  late: 'Late',
+  missed: 'Missed',
+  on_leave: 'On leave',
+  blocked: 'Blocked',
+}
+
 const renderReport = (action) => {
   hideBubble()
   panel.classList.remove('hidden')
@@ -256,19 +264,40 @@ const renderReport = (action) => {
 
   for (const item of sorted) {
     const row = document.createElement('div')
-    row.className = 'panel-row'
+    row.className = 'panel-row member-report-row'
+    if (item.blocked) row.classList.add('blocked-highlight')
 
-    const label = document.createElement('span')
+    const info = document.createElement('div')
+    info.className = 'member-report-info'
+
+    const nameLine = document.createElement('div')
+    nameLine.className = 'member-report-date'
+    nameLine.textContent = item.userName
+    info.appendChild(nameLine)
+
+    const detailLine = document.createElement('div')
+    detailLine.className = item.blocked ? 'member-report-reason' : 'member-report-text'
     if (item.blocked) {
-      label.textContent = `🚧 ${item.userName} - blocked: ${item.blockedReason || ''}`
+      detailLine.textContent = `Blocked: ${item.blockedReason || 'no reason given'}`
     } else if (item.status === 'submitted' || item.status === 'late') {
-      label.textContent = `✅ ${item.userName} - ${item.text || ''}`
+      detailLine.textContent = item.text || 'No details added'
     } else if (item.status === 'on_leave') {
-      label.textContent = `🌴 ${item.userName} - on leave`
+      detailLine.textContent = 'On leave'
     } else {
-      label.textContent = `❌ ${item.userName} - no update yet`
+      detailLine.textContent = 'No update yet'
     }
-    row.appendChild(label)
+    info.appendChild(detailLine)
+
+    row.appendChild(info)
+
+    const trailing = document.createElement('div')
+    trailing.className = 'panel-row-trailing'
+
+    const pillStatus = item.blocked ? 'blocked' : item.status
+    const pill = document.createElement('span')
+    pill.className = `status-pill ${pillStatus}`
+    pill.textContent = REPORT_STATUS_LABEL[pillStatus] || pillStatus
+    trailing.appendChild(pill)
 
     if (item.status === 'missed') {
       const nudgeBtn = document.createElement('button')
@@ -278,9 +307,10 @@ const renderReport = (action) => {
         nudgeBtn.textContent = 'Reminded'
         await window.taskBuddy.dispatchMessage(item.userId, "Don't forget your update!")
       })
-      row.appendChild(nudgeBtn)
+      trailing.appendChild(nudgeBtn)
     }
 
+    row.appendChild(trailing)
     panel.appendChild(row)
   }
 
@@ -303,7 +333,7 @@ const showAddTaskPrompt = async () => {
 
   const input = document.createElement('input')
   input.type = 'text'
-  input.placeholder = "e.g. 'remind me in 30 minutes to call the client'"
+  input.placeholder = "e.g. 'remind me to check back on this in 30 minutes'"
   bubbleActions.appendChild(input)
 
   const row = document.createElement('div')
@@ -612,11 +642,7 @@ const createTaskAndConfirm = async (text, remindAt, rawInput) => {
 
 // ---------- history panels ----------
 
-const statusIcon = (status) => {
-  if (status === 'submitted' || status === 'late') return '✅'
-  if (status === 'missed') return '❌'
-  return '•'
-}
+const HISTORY_STATUS_LABEL = { submitted: 'Submitted', late: 'Late', missed: 'Missed' }
 
 const renderHistoryPanel = async (isTeamView) => {
   hideBubble()
@@ -666,39 +692,65 @@ const renderHistoryPanel = async (isTeamView) => {
 
 const buildHistoryRow = (entry) => {
   const row = document.createElement('div')
-  row.className = 'panel-row'
-  const label = document.createElement('span')
-  const detail = entry.blocked ? `blocked: ${entry.blockedReason || ''}` : entry.text || ''
-  label.textContent = `${statusIcon(entry.status)} ${entry.date} ${entry.slotLabel || ''} - ${detail}`
-  row.appendChild(label)
+  row.className = 'panel-row member-report-row'
+  if (entry.blocked) row.classList.add('blocked-highlight')
+
+  const info = document.createElement('div')
+  info.className = 'member-report-info'
+
+  const dateLine = document.createElement('div')
+  dateLine.className = 'member-report-date'
+  dateLine.textContent = `${entry.date} - ${entry.slotLabel || ''}`
+  info.appendChild(dateLine)
+
+  const detailLine = document.createElement('div')
+  detailLine.className = entry.blocked ? 'member-report-reason' : 'member-report-text'
+  detailLine.textContent = entry.blocked ? `Blocked: ${entry.blockedReason || 'no reason given'}` : entry.text || ''
+  if (detailLine.textContent) info.appendChild(detailLine)
+
+  row.appendChild(info)
+
+  const pillStatus = entry.blocked ? 'blocked' : entry.status
+  const pill = document.createElement('span')
+  pill.className = `status-pill ${pillStatus}`
+  pill.textContent = entry.blocked ? 'Blocked' : HISTORY_STATUS_LABEL[pillStatus] || pillStatus || 'Pending'
+  row.appendChild(pill)
+
   return row
 }
 
 // ---------- send-a-message (lead/admin dispatch) ----------
 
-const loadTeamRoster = async () => {
-  const result = await window.taskBuddy.getHistory()
+const loadCompanyRoster = async () => {
+  const result = await window.taskBuddy.getCompanyRoster()
   if (!result.ok) return []
-  const groups = result.data.groups || []
-  const seen = new Map()
-  for (const g of groups) seen.set(g.userId, g.userName)
-  return [...seen.entries()].map(([userId, userName]) => ({ userId, userName }))
+  return result.data.members || []
 }
 
 const showSendMessagePrompt = async () => {
   await buddyStage.enter('dispatch', 'wave')
   clearBubble()
-  bubbleText.textContent = 'Who is this for, and what do you want to say?'
+  buddyStage.setExpression('thinking')
+  bubbleText.textContent = 'One sec...'
 
   let selectedRecipient = null
-  const roster = await loadTeamRoster()
+  let sendToEveryone = false
+  const roster = await loadCompanyRoster()
+
+  buddyStage.setExpression('happy')
+  bubbleText.textContent = 'Who is this for, and what do you want to say?'
+
+  const everyoneToggle = document.createElement('button')
+  everyoneToggle.className = 'pill-button'
+  everyoneToggle.textContent = `Send to everyone (${roster.length})`
+  bubbleActions.appendChild(everyoneToggle)
 
   const recipientWrap = document.createElement('div')
   recipientWrap.className = 'autocomplete'
 
   const recipientInput = document.createElement('input')
   recipientInput.type = 'text'
-  recipientInput.placeholder = 'Type a team member name…'
+  recipientInput.placeholder = 'Or type one person\'s name…'
   recipientWrap.appendChild(recipientInput)
 
   const suggestionList = document.createElement('div')
@@ -709,7 +761,7 @@ const showSendMessagePrompt = async () => {
   const renderSuggestions = (query) => {
     suggestionList.innerHTML = ''
     const q = query.trim().toLowerCase()
-    const matches = q ? roster.filter((r) => r.userName.toLowerCase().includes(q)) : roster
+    const matches = q ? roster.filter((r) => r.name.toLowerCase().includes(q)) : roster
 
     if (matches.length === 0) {
       suggestionList.classList.add('hidden')
@@ -719,10 +771,12 @@ const showSendMessagePrompt = async () => {
     for (const match of matches) {
       const item = document.createElement('div')
       item.className = 'suggestion-item'
-      item.textContent = match.userName
+      item.textContent = match.departmentName ? `${match.name} - ${match.departmentName}` : match.name
       item.addEventListener('click', () => {
         selectedRecipient = match
-        recipientInput.value = match.userName
+        sendToEveryone = false
+        everyoneToggle.classList.remove('primary')
+        recipientInput.value = match.name
         suggestionList.classList.add('hidden')
         updateSendState()
       })
@@ -730,6 +784,20 @@ const showSendMessagePrompt = async () => {
     }
     suggestionList.classList.remove('hidden')
   }
+
+  everyoneToggle.addEventListener('click', () => {
+    sendToEveryone = !sendToEveryone
+    everyoneToggle.classList.toggle('primary', sendToEveryone)
+    if (sendToEveryone) {
+      selectedRecipient = null
+      recipientInput.value = ''
+      recipientInput.disabled = true
+      suggestionList.classList.add('hidden')
+    } else {
+      recipientInput.disabled = false
+    }
+    updateSendState()
+  })
 
   recipientInput.addEventListener('focus', () => renderSuggestions(recipientInput.value))
   recipientInput.addEventListener('input', () => {
@@ -760,21 +828,60 @@ const showSendMessagePrompt = async () => {
   row.appendChild(cancelButton)
 
   function updateSendState() {
-    sendButton.disabled = !selectedRecipient || !messageInput.value.trim()
+    sendButton.disabled = !(sendToEveryone || selectedRecipient) || !messageInput.value.trim()
   }
 
   sendButton.addEventListener('click', async () => {
     const text = messageInput.value.trim()
-    if (!selectedRecipient || !text) return
+    if (!text || !(sendToEveryone || selectedRecipient)) return
+
+    sendButton.disabled = true
+
+    if (sendToEveryone) {
+      bubbleText.textContent = 'Sending...'
+      const freshRoster = await loadCompanyRoster()
+      const attempted = freshRoster.length
+
+      if (attempted === 0) {
+        bubbleText.textContent = "Couldn't find anyone to send to - try again in a moment."
+        sendButton.disabled = false
+        return
+      }
+
+      const result = await window.taskBuddy.dispatchBulkMessage(
+        freshRoster.map((r) => r.userId),
+        text,
+      )
+
+      if (!result.ok) {
+        bubbleText.textContent = "Couldn't send that - try again in a moment."
+        sendButton.disabled = false
+        return
+      }
+
+      const sentCount = result.data.sentCount ?? 0
+      buddyStage.setExpression('happy')
+      buddyStage.playSignature()
+      bubbleActions.innerHTML = ''
+      bubbleText.textContent =
+        sentCount >= attempted
+          ? `Sent to everyone (${sentCount} people).`
+          : `Sent to ${sentCount} of ${attempted} people - a few couldn't be reached.`
+      setTimeout(dismiss, 1800)
+      return
+    }
+
     const result = await window.taskBuddy.dispatchMessage(selectedRecipient.userId, text)
+
     if (!result.ok) {
       bubbleText.textContent = "Couldn't send that - try again in a moment."
+      sendButton.disabled = false
       return
     }
     buddyStage.setExpression('happy')
     buddyStage.playSignature()
     bubbleActions.innerHTML = ''
-    bubbleText.textContent = `Sent to ${selectedRecipient.userName}.`
+    bubbleText.textContent = `Sent to ${selectedRecipient.name}.`
     setTimeout(dismiss, 1500)
   })
 

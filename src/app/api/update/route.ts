@@ -9,7 +9,7 @@ import {
   istDateTimeToInstant,
   isTestMode,
 } from '@/lib/istTime'
-import { computeSlotWindow } from '@/lib/scheduler'
+import { computeSlotWindow, computeSnoozedUntil } from '@/lib/scheduler'
 
 interface UpdateRequestBody {
   slotId?: unknown
@@ -61,17 +61,24 @@ export const POST = async (request: Request) => {
     limit: 1,
   })
 
+  const istDate = getISTDateString(now)
+  const openInstant = isTestMode() ? now : istDateTimeToInstant(istDate, slot.time)
+  const effectiveDelay = getEffectiveReportDelayMinutes(department?.reportDelayMinutes ?? 15)
+  const { cutoffInstant } = computeSlotWindow(openInstant, effectiveDelay)
+
   if (body.snooze === true) {
     const currentCount = existing.docs[0]?.snoozeCount ?? 0
     if (currentCount >= 3) {
       return Response.json({ ok: false, error: 'snooze_limit_reached' }, { status: 400 })
     }
 
+    const snoozedUntil = computeSnoozedUntil(now, cutoffInstant).toISOString()
+
     const snoozed = existing.docs[0]
       ? await payload.update({
           collection: 'updates',
           id: existing.docs[0].id,
-          data: { snoozeCount: currentCount + 1 },
+          data: { snoozeCount: currentCount + 1, snoozedUntil },
         })
       : await payload.create({
           collection: 'updates',
@@ -81,16 +88,13 @@ export const POST = async (request: Request) => {
             date: dateKey,
             department: department?.id ?? null,
             snoozeCount: 1,
+            snoozedUntil,
           },
         })
 
-    return Response.json({ ok: true, snoozeCount: snoozed.snoozeCount })
+    return Response.json({ ok: true, snoozeCount: snoozed.snoozeCount, snoozedUntil: snoozed.snoozedUntil })
   }
 
-  const istDate = getISTDateString(now)
-  const openInstant = isTestMode() ? now : istDateTimeToInstant(istDate, slot.time)
-  const effectiveDelay = getEffectiveReportDelayMinutes(department?.reportDelayMinutes ?? 15)
-  const { cutoffInstant } = computeSlotWindow(openInstant, effectiveDelay)
   const status: 'submitted' | 'late' = now <= cutoffInstant ? 'submitted' : 'late'
 
   const text = typeof body.text === 'string' ? body.text.slice(0, 2000) : undefined

@@ -102,7 +102,8 @@ body {
 
 #bubble-actions button,
 .pairing-form button,
-.button-row button {
+.button-row button,
+#panel button {
   -webkit-app-region: no-drag;
   border: 2px solid #111;
   border-radius: 9px;
@@ -119,21 +120,40 @@ body {
 
 #bubble-actions button:active,
 .pairing-form button:active,
-.button-row button:active {
+.button-row button:active,
+#panel button:active {
   transform: translateY(1px) scale(0.98);
 }
 
 #bubble-actions button:hover,
 .pairing-form button:hover,
-.button-row button:hover {
+.button-row button:hover,
+#panel button:hover {
   filter: brightness(1.05);
 }
 
 #bubble-actions button.primary,
 .pairing-form button,
-.button-row button.primary {
+.button-row button.primary,
+#panel button.primary {
   background: #7bd88f;
   color: #063d19;
+}
+
+#panel button {
+  margin-top: 10px;
+}
+
+.panel-row button {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+.panel-row-trailing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .pairing-form input,
@@ -305,6 +325,16 @@ body {
 .status-pill.missed {
   background: #ff8a80;
   color: #4a0e08;
+}
+
+.status-pill.on_leave {
+  background: #cdd6e0;
+  color: #2b3948;
+}
+
+.status-pill.blocked {
+  background: #8fd0ff;
+  color: #0d3a5c;
 }
 
 .member-report-row {
