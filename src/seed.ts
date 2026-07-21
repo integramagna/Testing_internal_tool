@@ -127,6 +127,27 @@ const run = async () => {
     })
   }
 
+  const CHARACTER_SEEDS = [
+    { roleSlug: 'reminders', displayName: 'Coco' },
+    { roleSlug: 'reports', displayName: 'Scout' },
+    { roleSlug: 'dispatch', displayName: 'Zip' },
+  ] as const
+
+  for (const character of CHARACTER_SEEDS) {
+    const existing = await payload.find({
+      collection: 'characters',
+      where: { roleSlug: { equals: character.roleSlug } },
+      limit: 1,
+    })
+
+    if (existing.docs.length === 0) {
+      await payload.create({
+        collection: 'characters',
+        data: { roleSlug: character.roleSlug, displayName: character.displayName, active: true },
+      })
+    }
+  }
+
   console.log('Seed complete.')
   process.exit(0)
 }

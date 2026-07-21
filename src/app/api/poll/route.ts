@@ -1,6 +1,7 @@
 import configPromise from '@payload-config'
 import { getPayload, type Payload } from 'payload'
 
+import { getCharacterDisplayNames } from '@/lib/characters'
 import { resolveIdentity } from '@/lib/identity'
 import {
   getCurrentSlotDateKey,
@@ -31,7 +32,7 @@ const deliverReport = async (payload: Payload, slotRun: SlotRun, now: Date) => {
 
   return {
     action: 'show_report' as const,
-    character: 'nimbus' as const,
+    character: 'reports' as const,
     slotLabel: slot.label ?? slot.time,
     summary,
     items,
@@ -96,7 +97,7 @@ const checkRemindTask = async (payload: Payload, user: User, now: Date) => {
 
   return {
     action: 'remind_task' as const,
-    character: 'pip' as const,
+    character: 'reminders' as const,
     taskId: String(task.id),
     text: `${task.text} in 5 minutes!`,
   }
@@ -124,7 +125,7 @@ const checkDispatchTask = async (payload: Payload, user: User, now: Date) => {
 
   return {
     action: 'dispatch' as const,
-    character: 'bolt' as const,
+    character: 'dispatch' as const,
     taskId: String(task.id),
     from: fromName,
     fromUserId: fromUserId ? String(fromUserId) : null,
@@ -216,7 +217,7 @@ const checkMemberAction = async (payload: Payload, user: User, now: Date) => {
 
       return {
         action: 'escalation_warning' as const,
-        character: 'nimbus' as const,
+        character: 'reports' as const,
         slotId: String(slot.id),
         text: `Heads up — the report goes to ${leadName} in 5 minutes. Want to send it now?`,
       }
@@ -227,7 +228,7 @@ const checkMemberAction = async (payload: Payload, user: User, now: Date) => {
 
     return {
       action: 'ask_update' as const,
-      character: 'nimbus' as const,
+      character: 'reports' as const,
       slotId: String(slot.id),
       slotLabel: slot.label ?? slot.time,
       text: `Hey ${user.name}! What's your ${slot.label ?? slot.time} update?`,
@@ -253,29 +254,32 @@ export const GET = async (request: Request) => {
     data: { lastSeenAt: new Date().toISOString() },
   })
 
+  const characterNames = await getCharacterDisplayNames(payload)
+  const respond = (data: Record<string, unknown>) => Response.json({ ...data, characterNames })
+
   if (user.status === 'pending') {
-    return Response.json({ action: 'not_registered' })
+    return respond({ action: 'not_registered' })
   }
 
   const now = new Date()
 
   const dispatchAction = await checkDispatchTask(payload, user, now)
-  if (dispatchAction) return Response.json(dispatchAction)
+  if (dispatchAction) return respond(dispatchAction)
 
   if (isWithinQuietHoursExemptWindow(now)) {
     const taskAction = await checkRemindTask(payload, user, now)
-    if (taskAction) return Response.json(taskAction)
+    if (taskAction) return respond(taskAction)
 
     if (user.role === 'lead' || user.role === 'admin') {
       const showReportAction = await checkShowReport(payload, user, now)
-      if (showReportAction) return Response.json(showReportAction)
+      if (showReportAction) return respond(showReportAction)
     }
 
     if (user.role === 'member') {
       const memberAction = await checkMemberAction(payload, user, now)
-      if (memberAction) return Response.json(memberAction)
+      if (memberAction) return respond(memberAction)
     }
   }
 
-  return Response.json({ action: 'none' })
+  return respond({ action: 'none' })
 }

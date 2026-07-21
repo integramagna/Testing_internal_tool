@@ -9,6 +9,10 @@ import {
   isWithinQuietHoursExemptWindow,
   getEffectiveReportDelayMinutes,
   getCurrentSlotDateKey,
+  getDayCodeForDateString,
+  addDaysToDateString,
+  compareDateStrings,
+  daysBetweenDateStrings,
 } from '@/lib/istTime'
 
 describe('istTime', () => {
@@ -69,5 +73,23 @@ describe('istTime', () => {
 
     process.env.TEST_MODE = 'true'
     expect(getCurrentSlotDateKey(instant)).toBe('2026-07-17T12:00')
+  })
+
+  it('derives the day code from a plain date string without timezone drift', () => {
+    expect(getDayCodeForDateString('2026-07-17')).toBe('fri')
+    expect(getDayCodeForDateString('2026-07-19')).toBe('sun')
+  })
+
+  it('adds and subtracts days across a date string, including month rollover', () => {
+    expect(addDaysToDateString('2026-07-17', 1)).toBe('2026-07-18')
+    expect(addDaysToDateString('2026-07-31', 1)).toBe('2026-08-01')
+    expect(addDaysToDateString('2026-07-17', -3)).toBe('2026-07-14')
+  })
+
+  it('compares and diffs date strings', () => {
+    expect(compareDateStrings('2026-07-17', '2026-07-18')).toBeLessThan(0)
+    expect(compareDateStrings('2026-07-18', '2026-07-17')).toBeGreaterThan(0)
+    expect(compareDateStrings('2026-07-17', '2026-07-17')).toBe(0)
+    expect(daysBetweenDateStrings('2026-07-17', '2026-07-20')).toBe(3)
   })
 })

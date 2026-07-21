@@ -62,4 +62,32 @@ export const getEffectiveReportDelayMinutes = (configured: number): number => {
   return isTestMode() ? 6 : configured
 }
 
+export const getDayCodeForDateString = (dateStr: string): DayCode => {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return DAY_CODES[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
+}
+
+export const addDaysToDateString = (dateStr: string, days: number): string => {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const next = new Date(Date.UTC(y, m - 1, d + days))
+  const yy = next.getUTCFullYear()
+  const mm = String(next.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(next.getUTCDate()).padStart(2, '0')
+  return `${yy}-${mm}-${dd}`
+}
+
+export const compareDateStrings = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
+
+export const getISTEndOfDayInstant = (date: Date = new Date()): Date => {
+  return istDateTimeToInstant(getISTDateString(date), '23:59')
+}
+
+export const daysBetweenDateStrings = (fromStr: string, toStr: string): number => {
+  const [fy, fm, fd] = fromStr.split('-').map(Number)
+  const [ty, tm, td] = toStr.split('-').map(Number)
+  const fromUTC = Date.UTC(fy, fm - 1, fd)
+  const toUTC = Date.UTC(ty, tm - 1, td)
+  return Math.round((toUTC - fromUTC) / (24 * 60 * 60 * 1000))
+}
+
 export { isTestMode }

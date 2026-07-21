@@ -1,13 +1,14 @@
 const loaders = {
-  nimbus: () => import('./nimbus.js'),
-  pip: () => import('./pip.js'),
-  bolt: () => import('./bolt.js'),
+  reminders: () => import('./reminders.js'),
+  reports: () => import('./reports.js'),
+  dispatch: () => import('./dispatch.js'),
 }
 
-export const loadCharacter = async (id) => {
-  const loader = loaders[id]
+export const loadCharacter = async (roleSlug) => {
+  const loader = loaders[roleSlug]
   if (!loader) {
-    throw new Error(`Unknown character: ${id}`)
+    throw new Error(`Unknown character role: ${roleSlug}`)
   }
-  return loader()
+  const module = await loader()
+  return module.variant
 }

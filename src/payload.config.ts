@@ -14,6 +14,8 @@ import { Tasks } from './collections/Tasks'
 import { Holidays } from './collections/Holidays'
 import { AuditLog } from './collections/AuditLog'
 import { SlotRuns } from './collections/SlotRuns'
+import { Characters } from './collections/Characters'
+import { Settings } from './globals/Settings'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -25,7 +27,8 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media, Departments, Slots, Updates, Tasks, Holidays, AuditLog, SlotRuns],
+  collections: [Users, Media, Departments, Slots, Updates, Tasks, Holidays, AuditLog, SlotRuns, Characters],
+  globals: [Settings],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

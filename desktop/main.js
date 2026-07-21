@@ -26,6 +26,7 @@ let tray = null
 let pollTimer = null
 let currentPollIntervalMs = POLL_INTERVAL_MS
 let actionOnScreen = false
+let cachedCharacterNames = null
 const actionQueue = []
 const snoozedTaskUntil = new Map()
 
@@ -141,6 +142,13 @@ const buildTrayMenu = () => {
           sendToRenderer('open-panel', { panel: 'send-message' })
         },
       },
+      {
+        label: 'Member report',
+        click: () => {
+          showWindow()
+          sendToRenderer('open-panel', { panel: 'member-report' })
+        },
+      },
     )
   }
 
@@ -228,6 +236,10 @@ const poll = async () => {
       setPollInterval(POLL_INTERVAL_MS)
     }
 
+    if (data.characterNames) {
+      cachedCharacterNames = data.characterNames
+    }
+
     flushPendingUpdates()
     enqueueAction(data)
   } catch {
@@ -287,6 +299,8 @@ ipcMain.handle('pair', async (_event, code) => {
 
 ipcMain.handle('get-cached-identity', () => tokenStore.readIdentity())
 
+ipcMain.handle('get-character-names', () => cachedCharacterNames)
+
 ipcMain.handle('has-token', () => Boolean(tokenStore.readToken()))
 
 ipcMain.handle('action-resolved', () => {
@@ -321,6 +335,15 @@ ipcMain.handle('get-history', async () => {
   return authedFetch('/api/history')
 })
 
+ipcMain.handle('get-team-roster', async () => {
+  return authedFetch('/api/team-roster')
+})
+
+ipcMain.handle('get-member-report', async (_event, { userId, from, to }) => {
+  const params = new URLSearchParams({ userId, from, to })
+  return authedFetch(`/api/member-report?${params.toString()}`)
+})
+
 ipcMain.handle('parse-task', async (_event, rawInput) => {
   return authedFetch('/api/task/parse', {
     method: 'POST',
@@ -344,6 +367,13 @@ ipcMain.handle('ack-task', async (_event, { taskId, status }) => {
 
 ipcMain.handle('snooze-task', (_event, taskId) => {
   snoozedTaskUntil.set(taskId, Date.now() + 5 * 60 * 1000)
+})
+
+ipcMain.handle('reschedule-task', async (_event, { taskId, remindAt }) => {
+  return authedFetch(`/api/task/${taskId}/reschedule`, {
+    method: 'POST',
+    body: JSON.stringify({ remindAt }),
+  })
 })
 
 ipcMain.handle('dispatch-message', async (_event, { ownerId, text }) => {

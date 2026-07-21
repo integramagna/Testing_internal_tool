@@ -1,15 +1,16 @@
 import { loadCharacter } from './characters/index.js'
-import { legTransform } from './characters/shared.js'
+import { legTransform, svgBuddy } from './characters/shared.js'
 
 const buddyEl = document.getElementById('buddy')
 
-let activeModule = null
-let currentExpr = 'neutral'
+let activeVariant = null
+let currentExpr = 'happy'
 let phaseInterval = null
 let phase = 1
+let signatureTimeout = null
 
 const draw = (expr) => {
-  buddyEl.innerHTML = activeModule.svgBuddy(expr, phase)
+  buddyEl.innerHTML = svgBuddy(activeVariant, expr, phase)
 }
 
 const updateLegs = () => {
@@ -36,8 +37,8 @@ const startWalkCycle = () => {
   }, 200)
 }
 
-export const enter = async (characterId, expr = 'neutral') => {
-  activeModule = await loadCharacter(characterId)
+export const enter = async (roleSlug, expr = 'happy') => {
+  activeVariant = await loadCharacter(roleSlug)
   currentExpr = expr
   phase = 1
 
@@ -60,7 +61,7 @@ export const enter = async (characterId, expr = 'neutral') => {
 }
 
 export const setExpression = (expr) => {
-  if (!activeModule) return
+  if (!activeVariant) return
   currentExpr = expr
   buddyEl.classList.remove('idle')
   draw(expr)
@@ -70,10 +71,22 @@ export const setExpression = (expr) => {
   setTimeout(() => buddyEl.classList.add('idle'), 520)
 }
 
-export const exit = () => {
-  if (!activeModule) return Promise.resolve()
+export const playSignature = () => {
+  if (!activeVariant) return
+  if (signatureTimeout) clearTimeout(signatureTimeout)
+  buddyEl.classList.remove('signature')
+  void buddyEl.offsetWidth
+  buddyEl.classList.add('signature')
+  signatureTimeout = setTimeout(() => {
+    buddyEl.classList.remove('signature')
+    signatureTimeout = null
+  }, 750)
+}
 
-  buddyEl.classList.remove('idle', 'bounce')
+export const exit = () => {
+  if (!activeVariant) return Promise.resolve()
+
+  buddyEl.classList.remove('idle', 'bounce', 'signature')
   draw(currentExpr)
   buddyEl.classList.add('walking')
   startWalkCycle()
@@ -84,10 +97,10 @@ export const exit = () => {
       stopWalkCycle()
       buddyEl.classList.remove('walking')
       buddyEl.innerHTML = ''
-      activeModule = null
+      activeVariant = null
       resolve()
     }, 1150)
   })
 }
 
-export const isOnStage = () => activeModule !== null
+export const isOnStage = () => activeVariant !== null

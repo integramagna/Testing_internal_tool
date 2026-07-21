@@ -138,7 +138,8 @@ body {
 
 .pairing-form input,
 .bubble textarea,
-.bubble input[type='text'] {
+.bubble input[type='text'],
+.bubble input[type='date'] {
   -webkit-app-region: no-drag;
   width: 100%;
   border: 2px solid #111;
@@ -233,8 +234,114 @@ body {
   border-bottom: none;
 }
 
+.pill-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.pill-button {
+  -webkit-app-region: no-drag;
+  border: 2px solid #111;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #eef1f3;
+  color: #111;
+  transition:
+    transform 0.08s ease,
+    filter 0.12s ease;
+}
+
+.pill-button:hover {
+  filter: brightness(1.05);
+}
+
+.pill-button:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.stat-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.stat-chip {
+  background: #eef1f3;
+  border: 2px solid #111;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #111;
+}
+
+.status-pill {
+  flex-shrink: 0;
+  border: 2px solid #111;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-pill.submitted {
+  background: #7bd88f;
+  color: #063d19;
+}
+
+.status-pill.late {
+  background: #ffd166;
+  color: #4a3300;
+}
+
+.status-pill.missed {
+  background: #ff8a80;
+  color: #4a0e08;
+}
+
+.member-report-row {
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.member-report-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.member-report-date {
+  font-weight: 700;
+}
+
+.member-report-text {
+  color: #444;
+  margin-top: 2px;
+}
+
+.member-report-reason {
+  color: #9a1a10;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.blocked-highlight {
+  background: #fff1ef;
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin: 2px 0;
+  border-bottom: none;
+}
+
 #stage {
-  width: 120px;
+  width: 136px;
   height: 150px;
   display: flex;
   align-items: flex-end;
@@ -242,7 +349,7 @@ body {
 }
 
 #buddy {
-  width: 120px;
+  width: 136px;
   height: 150px;
   transform: translateX(360px);
   transition: transform 1.1s ease-in-out;
@@ -348,4 +455,64 @@ body {
 #buddy .leg-right {
   transform-box: fill-box;
   transition: transform 0.2s ease-in-out;
+}
+
+#buddy.signature svg .sticky-note {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: stickyWiggle 0.6s ease;
+}
+
+@keyframes stickyWiggle {
+  0% {
+    transform: rotate(-12deg) scale(1);
+  }
+  30% {
+    transform: rotate(6deg) scale(1.08);
+  }
+  60% {
+    transform: rotate(-8deg) scale(1.04);
+  }
+  100% {
+    transform: rotate(-12deg) scale(1);
+  }
+}
+
+#buddy.signature svg .cap-group {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: capNod 0.6s ease;
+}
+
+@keyframes capNod {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  35% {
+    transform: translateY(-4px) rotate(-6deg);
+  }
+  70% {
+    transform: translateY(1px) rotate(3deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+#buddy.signature svg .plane {
+  transform-box: fill-box;
+  transform-origin: left center;
+  animation: planeToss 0.7s ease;
+}
+
+@keyframes planeToss {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  55% {
+    transform: translate(14px, -10px) rotate(12deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
 }

@@ -76,6 +76,7 @@ export interface Config {
     holidays: Holiday;
     auditLog: AuditLog;
     slotRuns: SlotRun;
+    characters: Character;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -92,6 +93,7 @@ export interface Config {
     holidays: HolidaysSelect<false> | HolidaysSelect<true>;
     auditLog: AuditLogSelect<false> | AuditLogSelect<true>;
     slotRuns: SlotRunsSelect<false> | SlotRunsSelect<true>;
+    characters: CharactersSelect<false> | CharactersSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -101,8 +103,12 @@ export interface Config {
     defaultIDType: number;
   };
   fallbackLocale: null;
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    settings: Setting;
+  };
+  globalsSelect: {
+    settings: SettingsSelect<false> | SettingsSelect<true>;
+  };
   locale: null;
   widgets: {
     collections: CollectionsWidget;
@@ -326,6 +332,22 @@ export interface SlotRun {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "characters".
+ */
+export interface Character {
+  id: number;
+  /**
+   * Fixed identifier. Internal code references characters by this, never by name.
+   */
+  roleSlug: 'reminders' | 'reports' | 'dispatch';
+  displayName: string;
+  accentColor?: string | null;
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -383,6 +405,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'slotRuns';
         value: number | SlotRun;
+      } | null)
+    | ({
+        relationTo: 'characters';
+        value: number | Character;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -575,6 +601,18 @@ export interface SlotRunsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "characters_select".
+ */
+export interface CharactersSelect<T extends boolean = true> {
+  roleSlug?: T;
+  displayName?: T;
+  accentColor?: T;
+  active?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv_select".
  */
 export interface PayloadKvSelect<T extends boolean = true> {
@@ -612,6 +650,29 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "settings".
+ */
+export interface Setting {
+  id: number;
+  /**
+   * Who Pip points people to when a request is out of scope.
+   */
+  supportContactName: string;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "settings_select".
+ */
+export interface SettingsSelect<T extends boolean = true> {
+  supportContactName?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
