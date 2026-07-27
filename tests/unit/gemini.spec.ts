@@ -77,7 +77,6 @@ describe('parseWithFallback', () => {
     expect(result.needsClarification).toBe(false)
     expect(result.text).toBe('Call the vendor')
     expect(new Date(result.remindAt).getTime()).toBe(now.getTime() + 30 * 60_000)
-    // 2 models, 2 attempts each (1 initial + 1 retry) = 4 calls for one parseWithFallback run
     expect(mockGenerateContent.mock.calls.length).toBe(4)
   }, 20000)
 
@@ -236,4 +235,131 @@ describe('parseWithFallback', () => {
     expect(result.intent).toBe('motivate')
     expect(result.inScope).toBe(true)
   }, 20000)
+
+  it.each(['tell me a joke', 'got any jokes for me', 'make me laugh', 'say something funny'])(
+    'classifies %s as a joke locally when every model fails, regardless of exact phrasing',
+    async (input) => {
+      mockGenerateContent.mockRejectedValue(new Error('network error'))
+
+      const result = await parseWithFallback(input, new Date())
+
+      expect(result.intent).toBe('joke')
+      expect(result.inScope).toBe(true)
+    },
+    20000,
+  )
+
+  it.each([
+    "I'm feeling stuck today",
+    'I could use some encouragement',
+    'feeling pretty overwhelmed, need a pep talk',
+    'give me a pump me up moment',
+  ])(
+    'classifies %s as motivate locally when every model fails, regardless of exact phrasing',
+    async (input) => {
+      mockGenerateContent.mockRejectedValue(new Error('network error'))
+
+      const result = await parseWithFallback(input, new Date())
+
+      expect(result.intent).toBe('motivate')
+      expect(result.inScope).toBe(true)
+    },
+    20000,
+  )
+
+  it('extracts a separate eventAt when the reminder is about a later, distinct event', async () => {
+    mockGenerateContent.mockResolvedValueOnce(
+      mockReply({
+        intent: 'create_reminder',
+        text: 'Meeting with Rashmi',
+        remindAt: '2026-07-17T16:50:00+05:30',
+        confidence: 0.95,
+        eventAt: '2026-07-17T17:00:00+05:30',
+      }),
+    )
+
+    const result = await parseWithFallback(
+      "I have a meeting at 5 o'clock today with Rashmi, so please remind me at 4:50",
+      new Date(),
+    )
+
+    expect(result.intent).toBe('create_reminder')
+    expect(result.text).toBe('Meeting with Rashmi')
+    expect(result.eventAt).toBe(new Date('2026-07-17T17:00:00+05:30').toISOString())
+  })
+
+  it('discards eventAt when it is not after remindAt', async () => {
+    mockGenerateContent.mockResolvedValueOnce(
+      mockReply({
+        intent: 'create_reminder',
+        text: 'Call the vendor',
+        remindAt: '2026-07-17T16:50:00+05:30',
+        confidence: 0.9,
+        eventAt: '2026-07-17T16:00:00+05:30',
+      }),
+    )
+
+    const result = await parseWithFallback('call the vendor', new Date())
+
+    expect(result.intent).toBe('create_reminder')
+    expect(result.eventAt).toBeUndefined()
+  })
+
+  it('leaves eventAt undefined for an ordinary reminder with no separate event', async () => {
+    mockGenerateContent.mockResolvedValueOnce(
+      mockReply({
+        intent: 'create_reminder',
+        text: 'Check emails',
+        remindAt: '2026-07-17T06:01:00.000Z',
+        confidence: 0.95,
+      }),
+    )
+
+    const result = await parseWithFallback('remind me to check emails in 20 minutes', new Date())
+
+    expect(result.eventAt).toBeUndefined()
+  })
+
+  it('routes company_info with a generated answer', async () => {
+    mockGenerateContent.mockResolvedValueOnce(
+      mockReply({
+        intent: 'company_info',
+        text: '',
+        remindAt: '2026-07-17T06:30:00.000Z',
+        confidence: 0.85,
+        answer: "I don't have detailed information about Integra Magna specifically.",
+      }),
+    )
+
+    const result = await parseWithFallback('what is Integra Magna', new Date())
+
+    expect(result.intent).toBe('company_info')
+    expect(result.inScope).toBe(true)
+    expect(result.answer).toBe("I don't have detailed information about Integra Magna specifically.")
+  })
+
+  it('rejects a company_info response with no answer and falls through the chain', async () => {
+    mockGenerateContent
+      .mockResolvedValueOnce(
+        mockReply({
+          intent: 'company_info',
+          text: '',
+          remindAt: '2026-07-17T06:30:00.000Z',
+          confidence: 0.8,
+          answer: '',
+        }),
+      )
+      .mockResolvedValueOnce(
+        mockReply({
+          intent: 'decline',
+          text: '',
+          remindAt: '2026-07-17T06:30:00.000Z',
+          confidence: 0,
+        }),
+      )
+
+    const result = await parseWithFallback('what is Integra Magna', new Date())
+
+    expect(result.intent).toBe('decline')
+  })
 })

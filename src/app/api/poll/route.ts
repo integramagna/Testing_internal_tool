@@ -10,6 +10,7 @@ import {
   getISTDayCode,
   isWithinQuietHoursExemptWindow,
 } from '@/lib/istTime'
+import { buildReminderFireMessage } from '@/lib/pipIntents'
 import { buildReport } from '@/lib/report'
 import { getLedDepartmentIds, relationId } from '@/lib/relation'
 import { computeSlotWindow, findTodaysUndeliveredRun, isMemberOnLeave, isSnoozed } from '@/lib/scheduler'
@@ -103,7 +104,7 @@ const checkRemindTask = async (payload: Payload, user: User, now: Date) => {
     action: 'remind_task' as const,
     character: 'reminders' as const,
     taskId: String(task.id),
-    text: `${task.text} in 5 minutes!`,
+    text: buildReminderFireMessage(task.text, task.eventAt, now),
   }
 }
 

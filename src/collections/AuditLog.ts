@@ -14,7 +14,6 @@ export const AuditLog: CollectionConfig = {
     update: adminOnly,
     delete: adminOnly,
   },
-  // Payload's automatic `createdAt` timestamp field covers the spec's `createdAt` column.
   fields: [
     {
       name: 'type',

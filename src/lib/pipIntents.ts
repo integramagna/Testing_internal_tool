@@ -1,6 +1,6 @@
 import type { Payload } from 'payload'
 
-import { getISTEndOfDayInstant, getISTTimeString } from './istTime'
+import { formatFriendlyISTTime, getISTEndOfDayInstant, getISTTimeString } from './istTime'
 
 export interface ReminderListItem {
   taskId: string
@@ -107,4 +107,28 @@ export const resolveTimeQuery = async (
     : null
 
   return { currentTimeIST: getISTTimeString(now), nextReminder }
+}
+
+export const formatFriendlyDuration = (minutes: number): string => {
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  const hourLabel = `${hours} hour${hours === 1 ? '' : 's'}`
+  if (remainingMinutes === 0) return hourLabel
+  return `${hourLabel} ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}`
+}
+
+export const buildReminderFireMessage = (
+  text: string,
+  eventAt: string | null | undefined,
+  now: Date,
+): string => {
+  if (!eventAt) return `Reminder: ${text}`
+
+  const gapMinutes = Math.round((new Date(eventAt).getTime() - now.getTime()) / 60_000)
+  if (gapMinutes < 1) return `Reminder: ${text}`
+
+  const duration = formatFriendlyDuration(gapMinutes)
+  const eventTimeLabel = formatFriendlyISTTime(new Date(eventAt))
+  return `In ${duration} (${eventTimeLabel}): ${text}`
 }

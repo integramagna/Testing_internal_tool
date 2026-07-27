@@ -13,6 +13,7 @@ import {
   addDaysToDateString,
   compareDateStrings,
   daysBetweenDateStrings,
+  formatFriendlyISTTime,
 } from '@/lib/istTime'
 
 describe('istTime', () => {
@@ -91,5 +92,20 @@ describe('istTime', () => {
     expect(compareDateStrings('2026-07-18', '2026-07-17')).toBeGreaterThan(0)
     expect(compareDateStrings('2026-07-17', '2026-07-17')).toBe(0)
     expect(daysBetweenDateStrings('2026-07-17', '2026-07-20')).toBe(3)
+  })
+
+  describe('formatFriendlyISTTime', () => {
+    it('formats an afternoon instant in 12-hour form', () => {
+      expect(formatFriendlyISTTime(new Date('2026-07-17T11:30:00.000Z'))).toBe('5:00 PM')
+    })
+
+    it('formats midnight and noon correctly', () => {
+      expect(formatFriendlyISTTime(new Date('2026-07-17T18:30:00.000Z'))).toBe('12:00 AM')
+      expect(formatFriendlyISTTime(new Date('2026-07-17T06:30:00.000Z'))).toBe('12:00 PM')
+    })
+
+    it('formats a morning instant', () => {
+      expect(formatFriendlyISTTime(new Date('2026-07-17T03:45:00.000Z'))).toBe('9:15 AM')
+    })
   })
 })

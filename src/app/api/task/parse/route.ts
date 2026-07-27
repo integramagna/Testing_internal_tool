@@ -89,5 +89,11 @@ export const POST = async (request: Request) => {
     return Response.json({ ...result, reply: `${pickRandom(MOTIVATIONS)} ${MOTIVATE_NUDGE}` })
   }
 
+  if (result.intent === 'company_info') {
+    const supportContactName = await getSupportContactName(payload)
+    const reply = result.answer || `I don't have that information - ask ${supportContactName}.`
+    return Response.json({ ...result, reply })
+  }
+
   return Response.json(result)
 }

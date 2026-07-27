@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import type { Payload } from 'payload'
 
-import { resolveListReminders, resolveManageCandidates, resolveTimeQuery } from '@/lib/pipIntents'
+import {
+  resolveListReminders,
+  resolveManageCandidates,
+  resolveTimeQuery,
+  formatFriendlyDuration,
+  buildReminderFireMessage,
+} from '@/lib/pipIntents'
 
 interface FakeTask {
   id: number
@@ -135,5 +141,44 @@ describe('resolveTimeQuery', () => {
     const result = await resolveTimeQuery(payload, 999, now)
 
     expect(result.nextReminder).toBeNull()
+  })
+})
+
+describe('formatFriendlyDuration', () => {
+  it('formats sub-hour durations as minutes', () => {
+    expect(formatFriendlyDuration(1)).toBe('1 minute')
+    expect(formatFriendlyDuration(30)).toBe('30 minutes')
+  })
+
+  it('formats whole hours without a minutes remainder', () => {
+    expect(formatFriendlyDuration(60)).toBe('1 hour')
+    expect(formatFriendlyDuration(120)).toBe('2 hours')
+  })
+
+  it('formats hours with a minutes remainder', () => {
+    expect(formatFriendlyDuration(90)).toBe('1 hour 30 minutes')
+    expect(formatFriendlyDuration(61)).toBe('1 hour 1 minute')
+  })
+})
+
+describe('buildReminderFireMessage', () => {
+  it('builds a plain reminder message when there is no separate event time', () => {
+    const now = new Date('2026-07-17T11:20:00.000Z')
+    expect(buildReminderFireMessage('Call the vendor', null, now)).toBe('Reminder: Call the vendor')
+    expect(buildReminderFireMessage('Call the vendor', undefined, now)).toBe('Reminder: Call the vendor')
+  })
+
+  it('mentions the gap and the event time when a separate event time is present', () => {
+    const now = new Date('2026-07-17T11:20:00.000Z')
+    const eventAt = '2026-07-17T11:30:00.000Z'
+    expect(buildReminderFireMessage('Meeting with Rashmi', eventAt, now)).toBe(
+      'In 10 minutes (5:00 PM): Meeting with Rashmi',
+    )
+  })
+
+  it('falls back to a plain message when the event time has already passed', () => {
+    const now = new Date('2026-07-17T11:35:00.000Z')
+    const eventAt = '2026-07-17T11:30:00.000Z'
+    expect(buildReminderFireMessage('Meeting with Rashmi', eventAt, now)).toBe('Reminder: Meeting with Rashmi')
   })
 })

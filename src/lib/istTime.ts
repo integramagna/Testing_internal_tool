@@ -90,4 +90,12 @@ export const daysBetweenDateStrings = (fromStr: string, toStr: string): number =
   return Math.round((toUTC - fromUTC) / (24 * 60 * 60 * 1000))
 }
 
+export const formatFriendlyISTTime = (date: Date): string => {
+  const [hourStr, minuteStr] = getISTTimeString(date).split(':')
+  const hour24 = Number(hourStr)
+  const period = hour24 >= 12 ? 'PM' : 'AM'
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12
+  return `${hour12}:${minuteStr} ${period}`
+}
+
 export { isTestMode }

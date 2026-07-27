@@ -7,9 +7,6 @@ export const relationId = (value: unknown): number | null => {
   return typeof value === 'number' ? value : null
 }
 
-// A lead's scope is whichever departments have their `lead` field set to this
-// user - not the user's own `department` field, since one person can lead
-// several departments while only "belonging" to (at most) one themselves.
 export const getLedDepartmentIds = async (payload: Payload, userId: number): Promise<number[]> => {
   const result = await payload.find({
     collection: 'departments',

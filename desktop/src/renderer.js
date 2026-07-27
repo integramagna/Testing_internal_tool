@@ -46,8 +46,6 @@ const formatTime = (isoString) => {
   return date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
-// ---------- pairing ----------
-
 const showPairingScreen = async () => {
   await buddyStage.enter('reports', 'wave')
   clearBubble()
@@ -114,8 +112,6 @@ const submitPairingCode = async (code) => {
     window.taskBuddy.hideWindow()
   }, 2200)
 }
-
-// ---------- ask_update / escalation_warning ----------
 
 const renderAskUpdate = (action) => {
   clearBubble()
@@ -208,8 +204,6 @@ const renderBlockedReason = (action) => {
   input.focus()
 }
 
-// ---------- remind_task ----------
-
 const renderRemindTask = (action) => {
   clearBubble()
   bubbleText.textContent = action.text
@@ -235,8 +229,6 @@ const renderRemindTask = (action) => {
   })
   row.appendChild(snooze)
 }
-
-// ---------- show_report ----------
 
 const REPORT_STATUS_LABEL = {
   submitted: 'Submitted',
@@ -324,8 +316,6 @@ const renderReport = (action) => {
   panel.appendChild(closeButton)
 }
 
-// ---------- add-a-task ----------
-
 const showAddTaskPrompt = async () => {
   await buddyStage.enter('reminders', 'wave')
   clearBubble()
@@ -402,7 +392,8 @@ const submitTaskInput = async (rawInput) => {
     parsed.intent === 'identity' ||
     parsed.intent === 'who_is_god' ||
     parsed.intent === 'joke' ||
-    parsed.intent === 'motivate'
+    parsed.intent === 'motivate' ||
+    parsed.intent === 'company_info'
   ) {
     renderPipReply(parsed)
     return
@@ -413,7 +404,7 @@ const submitTaskInput = async (rawInput) => {
     return
   }
 
-  await createTaskAndConfirm(parsed.text, parsed.remindAt, rawInput)
+  await createTaskAndConfirm(parsed.text, parsed.remindAt, rawInput, parsed.eventAt)
 }
 
 const renderPipReply = (parsed) => {
@@ -609,7 +600,9 @@ const renderClarification = (parsed, rawInput) => {
   const todayBtn = document.createElement('button')
   todayBtn.textContent = `Today ${timeLabel}`
   todayBtn.classList.add('primary')
-  todayBtn.addEventListener('click', () => createTaskAndConfirm(parsed.text, parsed.remindAt, rawInput))
+  todayBtn.addEventListener('click', () =>
+    createTaskAndConfirm(parsed.text, parsed.remindAt, rawInput, parsed.eventAt),
+  )
   row.appendChild(todayBtn)
 
   const tomorrowBtn = document.createElement('button')
@@ -617,7 +610,13 @@ const renderClarification = (parsed, rawInput) => {
   tomorrowBtn.addEventListener('click', () => {
     const tomorrow = new Date(parsed.remindAt)
     tomorrow.setDate(tomorrow.getDate() + 1)
-    createTaskAndConfirm(parsed.text, tomorrow.toISOString(), rawInput)
+    let eventAtTomorrow = parsed.eventAt
+    if (parsed.eventAt) {
+      const eventTomorrow = new Date(parsed.eventAt)
+      eventTomorrow.setDate(eventTomorrow.getDate() + 1)
+      eventAtTomorrow = eventTomorrow.toISOString()
+    }
+    createTaskAndConfirm(parsed.text, tomorrow.toISOString(), rawInput, eventAtTomorrow)
   })
   row.appendChild(tomorrowBtn)
 
@@ -627,8 +626,8 @@ const renderClarification = (parsed, rawInput) => {
   row.appendChild(cancelButton)
 }
 
-const createTaskAndConfirm = async (text, remindAt, rawInput) => {
-  const result = await window.taskBuddy.createTask({ text, remindAt, rawInput })
+const createTaskAndConfirm = async (text, remindAt, rawInput, eventAt) => {
+  const result = await window.taskBuddy.createTask({ text, remindAt, rawInput, eventAt })
   if (!result.ok) {
     bubbleText.textContent = "Couldn't save that - try again in a moment."
     return
@@ -639,8 +638,6 @@ const createTaskAndConfirm = async (text, remindAt, rawInput) => {
   bubbleText.textContent = `Got it - I'll remind you at ${formatTime(remindAt)} about '${text}'.`
   setTimeout(dismiss, 2500)
 }
-
-// ---------- history panels ----------
 
 const HISTORY_STATUS_LABEL = { submitted: 'Submitted', late: 'Late', missed: 'Missed' }
 
@@ -718,8 +715,6 @@ const buildHistoryRow = (entry) => {
 
   return row
 }
-
-// ---------- send-a-message (lead/admin dispatch) ----------
 
 const loadCompanyRoster = async () => {
   const result = await window.taskBuddy.getCompanyRoster()
@@ -887,8 +882,6 @@ const showSendMessagePrompt = async () => {
 
   recipientInput.focus()
 }
-
-// ---------- member report (lead/admin) ----------
 
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
 
@@ -1182,8 +1175,6 @@ const renderMemberReport = (member, data) => {
   panel.appendChild(closeButton)
 }
 
-// ---------- dispatch (received message) ----------
-
 const renderDispatch = (action) => {
   clearBubble()
   bubbleText.textContent = `Message from ${action.from}:`
@@ -1238,8 +1229,6 @@ const renderDispatch = (action) => {
   })
   row.appendChild(gotIt)
 }
-
-// ---------- action routing ----------
 
 const ACTION_HANDLERS = {
   not_registered: async () => {

@@ -13,7 +13,7 @@ export const POST = async (request: Request) => {
 
   const { user } = identity
 
-  let body: { text?: unknown; remindAt?: unknown; rawInput?: unknown }
+  let body: { text?: unknown; remindAt?: unknown; rawInput?: unknown; eventAt?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -28,6 +28,14 @@ export const POST = async (request: Request) => {
     return Response.json({ error: 'invalid_task' }, { status: 400 })
   }
 
+  let eventAt: string | undefined
+  if (typeof body.eventAt === 'string' && body.eventAt) {
+    const eventDate = new Date(body.eventAt)
+    if (!Number.isNaN(eventDate.getTime()) && eventDate.getTime() > remindAt.getTime()) {
+      eventAt = eventDate.toISOString()
+    }
+  }
+
   const task = await payload.create({
     collection: 'tasks',
     data: {
@@ -38,6 +46,7 @@ export const POST = async (request: Request) => {
       status: 'pending',
       character: 'pip',
       rawInput,
+      eventAt,
     },
   })
 

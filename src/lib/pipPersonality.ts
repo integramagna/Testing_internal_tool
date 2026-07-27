@@ -1,5 +1,5 @@
 export const IDENTITY_REPLY =
-  "I'm Pip! I'm your reminder buddy - I can set reminders, tell you what's coming up, cancel or reschedule things, or tell you the time. Try 'remind me to call the vendor at 5'."
+  "I'm Pip! I'm your reminder buddy - I can set reminders, tell you what's coming up, cancel or reschedule things, or tell you the time. Try 'remind me to check back on this in 30 minutes'."
 
 export const WHO_IS_GOD_REPLY = 'Veer, obviously - he built me 😎'
 
@@ -9,6 +9,9 @@ export const JOKES = [
   "Why do clocks never get invited to parties? They're always ticking someone off.",
   "I told my last reminder a joke. It never fired back.",
   "What do you call a task that never gets done? Pending forever, apparently.",
+  "Why did the deadline feel lonely? Everyone kept pushing it back.",
+  "I tried to schedule a meeting about time management. It started late.",
+  "My to-do list and I are in a committed relationship. It's complicated.",
 ]
 
 export const MOTIVATIONS = [
@@ -17,6 +20,9 @@ export const MOTIVATIONS = [
   "You've handled harder days than this one.",
   "Progress, not perfection. Keep going.",
   "Future-you is already thanking you for starting.",
+  "You don't have to see the whole staircase, just the next step.",
+  "Done is better than perfect - keep moving.",
+  "You've gotten through 100% of your hard days so far.",
 ]
 
 export const MOTIVATE_NUDGE = 'Maybe take a short break if you can - even a couple of minutes helps.'

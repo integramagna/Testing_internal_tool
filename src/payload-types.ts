@@ -271,6 +271,10 @@ export interface Task {
   status?: ('pending' | 'done' | 'dismissed' | 'expired') | null;
   character: 'pip' | 'bolt';
   rawInput?: string | null;
+  /**
+   * For a reminder about a separate later event, that event's own time (distinct from remindAt)
+   */
+  eventAt?: string | null;
   acknowledgedAt?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -564,6 +568,7 @@ export interface TasksSelect<T extends boolean = true> {
   status?: T;
   character?: T;
   rawInput?: T;
+  eventAt?: T;
   acknowledgedAt?: T;
   updatedAt?: T;
   createdAt?: T;

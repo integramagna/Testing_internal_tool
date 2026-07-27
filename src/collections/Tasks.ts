@@ -62,6 +62,13 @@ export const Tasks: CollectionConfig = {
       type: 'text',
     },
     {
+      name: 'eventAt',
+      type: 'date',
+      admin: {
+        description: 'For a reminder about a separate later event, that event\'s own time (distinct from remindAt)',
+      },
+    },
+    {
       name: 'acknowledgedAt',
       type: 'date',
     },

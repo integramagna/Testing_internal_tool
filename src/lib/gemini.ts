@@ -13,6 +13,7 @@ export type PipIntent =
   | 'who_is_god'
   | 'joke'
   | 'motivate'
+  | 'company_info'
   | 'decline'
 
 export type ManageAction = 'cancel' | 'reschedule' | 'snooze'
@@ -27,6 +28,8 @@ export interface PipParseResult {
   listWindow?: 'today' | 'week'
   manageAction?: ManageAction
   targetHint?: string
+  eventAt?: string
+  answer?: string
 }
 
 const PIP_INTENTS: readonly PipIntent[] = [
@@ -38,6 +41,7 @@ const PIP_INTENTS: readonly PipIntent[] = [
   'who_is_god',
   'joke',
   'motivate',
+  'company_info',
   'decline',
 ]
 
@@ -61,6 +65,8 @@ interface GeminiShapeResult {
   listWindow?: 'today' | 'week'
   manageAction?: ManageAction
   targetHint?: string
+  eventAt?: string
+  answer?: string
 }
 
 const buildPrompt = (rawInput: string, now: Date): string => {
@@ -80,13 +86,19 @@ Classify the user's message into EXACTLY ONE of these intents:
 - time_query: they're asking the current time, or how long until their next reminder.
 - identity: they're asking who/what you are, who made you, or what you can do.
 - who_is_god: they're asking some version of "who is god" (to you / in general).
-- joke: they want a joke.
-- motivate: they want encouragement, or say they're stuck, tired, low, or unmotivated.
+- joke: they want a joke, or something to make them laugh, in whatever words they use for that.
+- motivate: they want encouragement, or say they're stuck, tired, low, overwhelmed, or unmotivated, in
+  whatever words they use for that.
+- company_info: they're asking a general question about Integra Magna itself - what the company is, what
+  it does, or its services.
 - decline: anything else - unrelated questions, small talk, or requests for something else the tool does
   (like sending a message or viewing a report).
 
+Classify by what they actually mean, not by matching exact phrases - people ask for the same thing in many
+different words.
+
 Return ONLY JSON, no markdown, no explanation, in exactly this shape:
-{"intent": "create_reminder", "text": "short task description", "remindAt": "ISO 8601 datetime with +05:30 offset", "confidence": 0.0, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+{"intent": "create_reminder", "text": "short task description", "remindAt": "ISO 8601 datetime with +05:30 offset", "confidence": 0.0, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
 
 Field rules:
 - text: only meaningful for create_reminder (short task description). Empty string otherwise.
@@ -98,62 +110,83 @@ Field rules:
 - manageAction: only for manage_reminder - "cancel", "reschedule", or "snooze".
 - targetHint: only for manage_reminder - a short phrase identifying which reminder they mean, taken from
   their own words (e.g. "client call"). Empty string if they said "it"/"that" or didn't specify one.
+- eventAt: only for create_reminder - if they describe a separate event happening at a later, different
+  time than when they want to be reminded (e.g. "remind me at 4:50 about my 5 o'clock meeting"), the ISO
+  time of that event. Leave as "" if the reminder itself is the whole thing, with no separate later event.
+- answer: only for company_info - a brief, honest answer about Integra Magna using whatever real knowledge
+  you actually have. If you don't have specific, reliable information about this particular company, say
+  so plainly instead of guessing or inventing details. Empty string otherwise.
 - Leave fields that don't apply to the classified intent at the defaults shown above.
 
 Examples:
 Input: "remind me in 30 minutes to call the client"
-Output: {"intent": "create_reminder", "text": "Call the client", "remindAt": "2026-07-17T10:35:00+05:30", "confidence": 0.95, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "create_reminder", "text": "Call the client", "remindAt": "2026-07-17T10:35:00+05:30", "confidence": 0.95, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
 
 Input: "remind me at before 5"
-Output: {"intent": "create_reminder", "text": "Reminder", "remindAt": "2026-07-17T17:00:00+05:30", "confidence": 0.55, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "create_reminder", "text": "Reminder", "remindAt": "2026-07-17T17:00:00+05:30", "confidence": 0.55, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
 
 Input: "don't let me forget to submit the report tomorrow morning"
-Output: {"intent": "create_reminder", "text": "Submit the report", "remindAt": "2026-07-18T09:00:00+05:30", "confidence": 0.8, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "create_reminder", "text": "Submit the report", "remindAt": "2026-07-18T09:00:00+05:30", "confidence": 0.8, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
+
+Input: "I have a meeting at 5 o'clock today with Rashmi, so please remind me at 4:50"
+Output: {"intent": "create_reminder", "text": "Meeting with Rashmi", "remindAt": "2026-07-17T16:50:00+05:30", "confidence": 0.95, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "2026-07-17T17:00:00+05:30", "answer": ""}
 
 Input: "what are my reminders today"
-Output: {"intent": "list_reminders", "text": "", "remindAt": "${nowIso}", "confidence": 0.95, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "list_reminders", "text": "", "remindAt": "${nowIso}", "confidence": 0.95, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
 
 Input: "what do I have coming up this week"
-Output: {"intent": "list_reminders", "text": "", "remindAt": "${nowIso}", "confidence": 0.9, "listWindow": "week", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "list_reminders", "text": "", "remindAt": "${nowIso}", "confidence": 0.9, "listWindow": "week", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
 
 Input: "cancel my reminder about the client call"
-Output: {"intent": "manage_reminder", "text": "", "remindAt": "${nowIso}", "confidence": 0.9, "listWindow": "today", "manageAction": "cancel", "targetHint": "client call"}
+Output: {"intent": "manage_reminder", "text": "", "remindAt": "${nowIso}", "confidence": 0.9, "listWindow": "today", "manageAction": "cancel", "targetHint": "client call", "eventAt": "", "answer": ""}
 
 Input: "push my report reminder to 6pm"
-Output: {"intent": "manage_reminder", "text": "", "remindAt": "2026-07-17T18:00:00+05:30", "confidence": 0.85, "listWindow": "today", "manageAction": "reschedule", "targetHint": "report"}
+Output: {"intent": "manage_reminder", "text": "", "remindAt": "2026-07-17T18:00:00+05:30", "confidence": 0.85, "listWindow": "today", "manageAction": "reschedule", "targetHint": "report", "eventAt": "", "answer": ""}
 
 Input: "snooze that reminder"
-Output: {"intent": "manage_reminder", "text": "", "remindAt": "${nowIso}", "confidence": 0.8, "listWindow": "today", "manageAction": "snooze", "targetHint": ""}
+Output: {"intent": "manage_reminder", "text": "", "remindAt": "${nowIso}", "confidence": 0.8, "listWindow": "today", "manageAction": "snooze", "targetHint": "", "eventAt": "", "answer": ""}
 
 Input: "what time is it"
-Output: {"intent": "time_query", "text": "", "remindAt": "${nowIso}", "confidence": 0.95, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "time_query", "text": "", "remindAt": "${nowIso}", "confidence": 0.95, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
 
 Input: "how long until my next reminder"
-Output: {"intent": "time_query", "text": "", "remindAt": "${nowIso}", "confidence": 0.9, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "time_query", "text": "", "remindAt": "${nowIso}", "confidence": 0.9, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
 
 Input: "what's your name"
-Output: {"intent": "identity", "text": "", "remindAt": "${nowIso}", "confidence": 0.95, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "identity", "text": "", "remindAt": "${nowIso}", "confidence": 0.95, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
 
 Input: "who made you"
-Output: {"intent": "identity", "text": "", "remindAt": "${nowIso}", "confidence": 0.9, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "identity", "text": "", "remindAt": "${nowIso}", "confidence": 0.9, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
 
 Input: "who is god to you"
-Output: {"intent": "who_is_god", "text": "", "remindAt": "${nowIso}", "confidence": 0.9, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "who_is_god", "text": "", "remindAt": "${nowIso}", "confidence": 0.9, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
 
 Input: "tell me a joke"
-Output: {"intent": "joke", "text": "", "remindAt": "${nowIso}", "confidence": 0.9, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "joke", "text": "", "remindAt": "${nowIso}", "confidence": 0.9, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
+
+Input: "make me laugh"
+Output: {"intent": "joke", "text": "", "remindAt": "${nowIso}", "confidence": 0.85, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
 
 Input: "I'm feeling really stuck today"
-Output: {"intent": "motivate", "text": "", "remindAt": "${nowIso}", "confidence": 0.85, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "motivate", "text": "", "remindAt": "${nowIso}", "confidence": 0.85, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
+
+Input: "I could really use some encouragement right now"
+Output: {"intent": "motivate", "text": "", "remindAt": "${nowIso}", "confidence": 0.85, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
+
+Input: "what is Integra Magna"
+Output: {"intent": "company_info", "text": "", "remindAt": "${nowIso}", "confidence": 0.85, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": "I don't have detailed information about Integra Magna specifically - I'd suggest checking with your admin or the company site for an accurate description."}
+
+Input: "what services does our company offer"
+Output: {"intent": "company_info", "text": "", "remindAt": "${nowIso}", "confidence": 0.85, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": "I don't have specific details on Integra Magna's services - ask your admin for an accurate answer."}
 
 Input: "what's the capital of France"
-Output: {"intent": "decline", "text": "", "remindAt": "${nowIso}", "confidence": 0, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "decline", "text": "", "remindAt": "${nowIso}", "confidence": 0, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
 
 Input: "send a message to Rahul"
-Output: {"intent": "decline", "text": "", "remindAt": "${nowIso}", "confidence": 0, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "decline", "text": "", "remindAt": "${nowIso}", "confidence": 0, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
 
 Input: "hey how are you"
-Output: {"intent": "decline", "text": "", "remindAt": "${nowIso}", "confidence": 0, "listWindow": "today", "manageAction": "cancel", "targetHint": ""}
+Output: {"intent": "decline", "text": "", "remindAt": "${nowIso}", "confidence": 0, "listWindow": "today", "manageAction": "cancel", "targetHint": "", "eventAt": "", "answer": ""}
 
 Input: "${rawInput}"`
 }
@@ -187,7 +220,16 @@ const validateShape = (raw: string): GeminiShapeResult | null => {
 
   if (obj.intent === 'create_reminder') {
     if (typeof obj.text !== 'string' || obj.text.trim().length === 0) return null
-    return { intent: 'create_reminder', text: obj.text.trim(), remindAt, confidence: obj.confidence }
+
+    let eventAt: string | undefined
+    if (typeof obj.eventAt === 'string' && obj.eventAt.trim()) {
+      const eventDate = new Date(obj.eventAt)
+      if (!Number.isNaN(eventDate.getTime()) && eventDate.getTime() > parsedDate.getTime()) {
+        eventAt = eventDate.toISOString()
+      }
+    }
+
+    return { intent: 'create_reminder', text: obj.text.trim(), remindAt, confidence: obj.confidence, eventAt }
   }
 
   if (obj.intent === 'list_reminders') {
@@ -203,6 +245,12 @@ const validateShape = (raw: string): GeminiShapeResult | null => {
     if (!manageAction) return null
     const targetHint = typeof obj.targetHint === 'string' ? obj.targetHint.trim() : ''
     return { intent: 'manage_reminder', text: '', remindAt, confidence: obj.confidence, manageAction, targetHint }
+  }
+
+  if (obj.intent === 'company_info') {
+    const answer = typeof obj.answer === 'string' ? obj.answer.trim() : ''
+    if (!answer) return null
+    return { intent: 'company_info', text: '', remindAt, confidence: obj.confidence, answer }
   }
 
   return { intent: obj.intent, text: '', remindAt, confidence: obj.confidence }
@@ -267,6 +315,19 @@ const tryModel = async (
           remindAt: parsed.remindAt,
           confidence: parsed.confidence,
           needsClarification: parsed.confidence < 0.7,
+          eventAt: parsed.eventAt,
+        }
+      }
+
+      if (parsed.intent === 'company_info') {
+        return {
+          intent: 'company_info',
+          inScope: true,
+          text: '',
+          remindAt: parsed.remindAt,
+          confidence: parsed.confidence,
+          needsClarification: false,
+          answer: parsed.answer,
         }
       }
 
@@ -394,10 +455,13 @@ const looksLikeReminderRequest = (input: string): boolean => REMINDER_SIGNAL_PAT
 
 const WHO_IS_GOD_PATTERN = /\bwho'?s\s+(your\s+)?god\b|\bwho\s+is\s+god\b/i
 const IDENTITY_PATTERN =
-  /\byour\s+name\b|\bwho\s+are\s+you\b|\bwho\s+made\s+you\b|\bwhat\s+can\s+you\s+do\b|\bare\s+you\s+(a\s+)?bot\b/i
-const JOKE_PATTERN = /\bjoke\b/i
-const MOTIVATE_PATTERN = /\bmotivat|\bfeeling\s+(low|stuck|down|tired)\b|\bi'?m\s+stuck\b|\bpep\s+talk\b/i
-const TIME_QUERY_PATTERN = /\bwhat\s+time\s+is\s+it\b|\bcurrent\s+time\b|\bhow\s+long\s+until\b|\btime\s+left\b/i
+  /\byour\s+name\b|\bwho\s+are\s+you\b|\bwho\s+made\s+you\b|\bwhat\s+can\s+you\s+do\b|\bare\s+you\s+(a\s+)?bot\b|\btell me about yourself\b|\bwhat\s+are\s+you\b/i
+const JOKE_PATTERN =
+  /\bjokes?\b|\bmake me laugh\b|\bsomething funny\b|\bfunny\s+(story|thing)\b|\bcrack me up\b|\bmake me smile\b/i
+const MOTIVATE_PATTERN =
+  /\bmotivat|\bencourage|\bfeeling\s+(low|stuck|down|tired|unmotivated|overwhelmed)\b|\bi'?m\s+(stuck|struggling|overwhelmed)\b|\bpep\s+talk\b|\bneed\s+(a\s+)?(boost|motivation|encouragement)\b|\bcheer me up\b|\bpump me up\b|\bcan'?t\s+do\s+this\b|\binspire me\b/i
+const TIME_QUERY_PATTERN =
+  /\bwhat\s+time\s+is\s+it\b|\bcurrent\s+time\b|\bhow\s+long\s+until\b|\btime\s+left\b|\bwhat'?s\s+the\s+time\b/i
 
 const detectLocalPersonalityIntent = (rawInput: string): PipIntent | null => {
   if (WHO_IS_GOD_PATTERN.test(rawInput)) return 'who_is_god'
