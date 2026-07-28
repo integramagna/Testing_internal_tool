@@ -320,6 +320,92 @@ describe('parseWithFallback', () => {
     expect(result.eventAt).toBeUndefined()
   })
 
+  it('infers eventAt locally from a second clock time when Gemini omits it', async () => {
+    mockGenerateContent.mockResolvedValueOnce(
+      mockReply({
+        intent: 'create_reminder',
+        text: 'Meet',
+        remindAt: '2026-07-28T11:45:00+05:30',
+        confidence: 0.95,
+      }),
+    )
+
+    const now = new Date('2026-07-28T06:00:00.000Z')
+    const result = await parseWithFallback(
+      'i have meet at 12:30pm today remind me abou that at 11:45 am',
+      now,
+    )
+
+    expect(result.intent).toBe('create_reminder')
+    expect(result.eventAt).toBe(new Date('2026-07-28T12:30:00+05:30').toISOString())
+  })
+
+  it('infers eventAt locally through the local regex fallback path too', async () => {
+    mockGenerateContent.mockRejectedValue(new Error('network error'))
+
+    const now = new Date('2026-07-28T06:00:00.000Z')
+    const result = await parseWithFallback(
+      'remind me at 11:45am about my meet at 12:30pm',
+      now,
+    )
+
+    expect(result.intent).toBe('create_reminder')
+    expect(result.eventAt).toBe(new Date('2026-07-28T12:30:00+05:30').toISOString())
+  }, 20000)
+
+  it('does not guess eventAt when only one clock time is mentioned', async () => {
+    mockGenerateContent.mockResolvedValueOnce(
+      mockReply({
+        intent: 'create_reminder',
+        text: 'Check emails',
+        remindAt: '2026-07-28T06:01:00.000Z',
+        confidence: 0.95,
+      }),
+    )
+
+    const result = await parseWithFallback('remind me to check emails in 20 minutes', new Date())
+
+    expect(result.eventAt).toBeUndefined()
+  })
+
+  it('does not guess eventAt when a second time mention is ambiguous or malformed', async () => {
+    mockGenerateContent.mockResolvedValueOnce(
+      mockReply({
+        intent: 'create_reminder',
+        text: 'Meet',
+        remindAt: '2026-07-28T23:42:00+05:30',
+        confidence: 0.85,
+      }),
+    )
+
+    const now = new Date('2026-07-28T06:00:00.000Z')
+    const result = await parseWithFallback(
+      'i have meet at 12:30 pm today so remind me about that at 11: 42pm',
+      now,
+    )
+
+    expect(result.eventAt).toBeUndefined()
+  })
+
+  it('does not overwrite an eventAt Gemini already extracted correctly', async () => {
+    mockGenerateContent.mockResolvedValueOnce(
+      mockReply({
+        intent: 'create_reminder',
+        text: 'Meeting with Rashmi',
+        remindAt: '2026-07-17T16:50:00+05:30',
+        confidence: 0.95,
+        eventAt: '2026-07-17T17:00:00+05:30',
+      }),
+    )
+
+    const result = await parseWithFallback(
+      "I have a meeting at 5 o'clock today with Rashmi, so please remind me at 4:50",
+      new Date(),
+    )
+
+    expect(result.eventAt).toBe(new Date('2026-07-17T17:00:00+05:30').toISOString())
+  })
+
   it('routes company_info with a generated answer', async () => {
     mockGenerateContent.mockResolvedValueOnce(
       mockReply({

@@ -448,6 +448,29 @@ const localRegexParse = (rawInput: string, now: Date): LocalParseResult => {
   return { text: input, remindAt: null, confidence: 0 }
 }
 
+const TIME_MENTION_PATTERN = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/gi
+
+const inferEventAtFromText = (rawInput: string, remindAt: Date, now: Date): string | undefined => {
+  const matches = [...rawInput.matchAll(TIME_MENTION_PATTERN)]
+  if (matches.length < 2) return undefined
+
+  const laterCandidates = new Map<number, Date>()
+  for (const match of matches) {
+    const hour = normalizeHour(Number(match[1]), match[3]?.toLowerCase())
+    const minute = match[2] ? Number(match[2]) : 0
+    if (hour > 23 || minute > 59) continue
+
+    const candidate = istWallTimeOnDate(now, 0, hour, minute)
+    const isDistinctFromRemindAt = Math.abs(candidate.getTime() - remindAt.getTime()) > 2 * MINUTE_MS
+    if (isDistinctFromRemindAt && candidate.getTime() > remindAt.getTime()) {
+      laterCandidates.set(candidate.getTime(), candidate)
+    }
+  }
+
+  if (laterCandidates.size !== 1) return undefined
+  return [...laterCandidates.values()][0].toISOString()
+}
+
 const REMINDER_SIGNAL_PATTERN =
   /\b(remind|reminder|forget|before|after|tomorrow|today|tonight|later|in\s+\d|at\s+\d|\d{1,2}(:\d{2})?\s*(am|pm)|o'?clock)\b/i
 
@@ -475,6 +498,21 @@ const detectLocalPersonalityIntent = (rawInput: string): PipIntent | null => {
 export const parseWithFallback = async (
   rawInput: string,
   now: Date = new Date(),
+  payload?: Payload,
+): Promise<PipParseResult> => {
+  const result = await parseIntentAndTime(rawInput, now, payload)
+
+  if (result.intent === 'create_reminder' && !result.eventAt) {
+    const inferred = inferEventAtFromText(rawInput, new Date(result.remindAt), now)
+    if (inferred) return { ...result, eventAt: inferred }
+  }
+
+  return result
+}
+
+const parseIntentAndTime = async (
+  rawInput: string,
+  now: Date,
   payload?: Payload,
 ): Promise<PipParseResult> => {
   for (const model of MODEL_CHAIN) {
